@@ -1,0 +1,2512 @@
+import_ffi utf8 as type;
+import_ffi utf16 as type;
+import_ffi pad as function;
+
+// protocol initiation
+
+type ClientHandshake = container {
+    byte_order: u8,
+    reserved1: u8,
+    protocol_major_version: u16,
+    protocol_minor_version: u16,
+    auth_proto_name_len: u16 +auto,
+    auth_proto_data_len: u16 +auto,
+    reserved2: u16,
+    auth_proto_name: utf8(auth_proto_name_len),
+    .pad: pad(4, auth_proto_name_len),
+    auth_proto_data: utf8(auth_proto_data_len),
+    .pad: pad(4, auth_proto_data_len),
+};
+
+type ServerHandshake = container {
+    code: u8,
+    body: ServerHandshakeBody(code),
+};
+
+type ServerHandshakeFailed = container {
+    reason_len: u8 +auto,
+    protocol_major_version: u16,
+    protocol_minor_version: u16,
+    add_data_len: u16,
+    reason: utf8(reason_len),
+    padded: u8[pad(4, reason_len)],
+};
+
+type ServerHandshakeAuthRequired = container {
+    .pad: 5,
+    add_data_len: u16,
+    reason: utf8(add_data_len * 4),
+};
+
+type Endianness = enum u8 {
+    LSB = 0,
+    MSB,
+};
+
+type PixmapFormat = container {
+    depth: u8,
+    bits_per_pixel: u8,
+    scanline_pad: u8,
+    .pad: 5
+    //.pad: 5,
+};
+
+type Screen = container {
+    root_window: u32,
+    default_colormap: u32,
+    white_pixel: u32,
+    black_pixel: u32,
+    current_input_event_mask: EventMask,
+    width_in_pixels: u16,
+    height_in_pixels: u16,
+    width_in_mm: u16,
+    height_in_mm: u16,
+    min_installed_maps: u16,
+    max_installed_maps: u16,
+    root_visual: u32,
+    backing_store: BackingStore,
+    save_under: bool,
+    root_depth: u8,
+    depth_count: u8 +auto,
+    depths: Depth[depth_count],
+};
+
+type Depth = container {
+    depth: u8,
+    reserved1: u8,
+    visualtype_count: u16 +auto,
+    reserved2: u32,
+    visuals: VisualType[visualtype_count],
+};
+
+type VisualTypeClass = enum u8 {
+    StaticGray = 0,
+    GrayScale,
+    StaticColor,
+    PsuedoColor,
+    TrueColor,
+    DirectColor,
+};
+
+type VisualType = container {
+    visual: u32,
+    class: VisualTypeClass,
+    bits_per_rgb_value: u8,
+    colormap_entries: u16,
+    red_mask: u32,
+    green_mask: u32,
+    blue_mask: u32,
+    reserved: u32,
+};
+
+type ServerHandshakeSuccess = container {
+    reserved1: u8,
+    protocol_major_version: u16,
+    protocol_minor_version: u16,
+    add_data_len: u16,
+    interior: container[add_data_len*4] {
+        release_number: u32,
+        resource_id_base: u32,
+        resource_id_mask: u32,
+        motion_buffer_size: u32,
+        vendor_len: u16 +auto,
+        maximum_request_length: u16,
+        screen_count: u8,
+        pixmap_format_count: u8 +auto,
+        image_byte_order: Endianness,
+        bitmap_format_bit_order: Endianness,
+        bitmap_format_scanline_unit: u8,
+        bitmap_format_scanline_pad: u8,
+        min_keycode: u8,
+        max_keycode: u8,
+        reserved: u32,
+        vendor: utf8(vendor_len),
+        pixmap_formats: PixmapFormat[pixmap_format_count],
+        screens: Screen[..],
+    }
+};
+
+type ServerHandshakeBody(code: u8) = container +tagged_enum {
+    Failed: ServerHandshakeFailed { code == 0 },
+    AuthRequired: ServerHandshakeAuthRequired { code == 2 },
+    Success: ServerHandshakeSuccess { code == 1 },
+};
+
+// common types 
+
+type BitGravity = enum u8 {
+    Forget = 0,
+    Static,
+    NorthWest,
+    North,
+    NorthEast,
+    West,
+    Center,
+    East,
+    SouthWest,
+    South,
+    SouthEast,
+};
+
+type WinGravity = enum u8 {
+    Unmap = 0,
+    Static,
+    NorthWest,
+    North,
+    NorthEast,
+    West,
+    Center,
+    East,
+    SouthWest,
+    South,
+    SouthEast,
+};
+
+type EventMask = bitfield u32 {
+    KeyPress = 0x1,
+    KeyRelease,
+    ButtonPress,
+    ButtonRelease,
+    EnterWindow,
+    LeaveWindow,
+    PointerMotion,
+    PointerMotionHint,
+    Button1Motion,
+    Button2Motion,
+    Button3Motion,
+    Button4Motion,
+    Button5Motion,
+    ButtonMotion,
+    KeymapState,
+    Exposure,
+    VisibilityChange,
+    StructureNotify,
+    ResizeRedirect,
+    SubstructureNotify,
+    SubstructureRedirect,
+    FocusChange,
+    PropertyChange,
+    ColormapChange,
+    OwnerGrabButton,
+};
+
+type PointerEventMask = bitfield u16 {
+    ButtonPress = 0x04,
+    ButtonRelease,
+    EnterWindow,
+    LeaveWindow,
+    PointerMotion,
+    PointerMotionHint,
+    Button1Motion,
+    Button2Motion,
+    Button3Motion,
+    Button4Motion,
+    Button5Motion,
+    ButtonMotion,
+    KeymapState,
+};
+
+type Keybutmask = bitfield u16 {
+    Shift = 0x01,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+    Button1,
+    Button2,
+    Button3,
+    Button4,
+    Button5,
+};
+
+type Keymask = bitfield u16 {
+    Shift = 0x01,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+    AnyModifier = 0x8000,
+};
+
+type Point = container {
+    x: i16,
+    y: i16,
+};
+
+type Rectangle = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+};
+
+type Arc = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    angle1: i16,
+    angle2: i16,
+};
+
+type HostFamily = enum u8 {
+    Internet = 0,
+    DecNet,
+    Chaos,
+    ServerInterpreted = 5,
+    InternetV6,
+};
+
+type Host = container {
+    family: HostFamily,
+    reserved: u8,
+    address_length: u16 +auto,
+    address: u8[address_length],
+};
+
+type Str = container {
+    str_length: u8 +auto,
+    str: utf8(str_length),
+};
+
+// errors
+
+type ErrorCode = enum u8 {
+    Request = 1,
+    Value,
+    Window,
+    Pixmap,
+    Atom,
+    Cursor,
+    Font,
+    Match,
+    Drawable,
+    Access,
+    Alloc,
+    Colormap,
+    GContext,
+    IDChoice,
+    Name,
+    Length,
+    Implementation,
+};
+
+type ErrorReply = container [32] {
+    code: ErrorCode,
+    sequence_number: u16,
+    bad_value: u32,
+    minor_opcode: u16,
+    major_opcode: u8,
+    .pad: 21,
+};
+
+// replies
+
+
+type Reply = container {
+    reserved: u8,
+    sequence_number: u16,
+    length: u32,
+    data: u8[length * 4 + 24],
+};
+
+// events
+
+type EventCode = enum u8 {
+    KeyPress = 2,
+    KeyRelease,
+    ButtonPress,
+    ButtonRelease,
+    MotionNotify,
+    EnterNotify,
+    LeaveNotify,
+    FocusIn,
+    FocusOut,
+    KeymapNotify,
+    Expose,
+    GraphicsExposure,
+    NoExposure,
+    VisibilityNotify,
+    CreateNotify,
+    DestroyNotify,
+    UnmapNotify,
+    MapNotify,
+    MapRequest,
+    ReparentNotify,
+    ConfigureNotify,
+    ConfigureRequest,
+    GravityNotify,
+    ResizeRequest,
+    CirculateNotify,
+    CirculateRequest,
+    PropertyNotify,
+    SelectionClear,
+    SelectionRequest,
+    SelectionNotify,
+    ColormapNotify,
+    ClientMessage,
+    MappingNotify,
+};
+
+type Event(code: u8) = container +tagged_enum {
+    KeyPress: KeyEvent { code == EventCode::KeyPress },
+    KeyRelease: KeyEvent { code == EventCode::KeyRelease },
+    ButtonPress: ButtonEvent { code == EventCode::ButtonPress },
+    ButtonRelease: ButtonEvent { code == EventCode::ButtonRelease },
+    MotionNotify: MotionNotifyEvent { code == EventCode::MotionNotify },
+    EnterNotify: NotifyEvent { code == EventCode::EnterNotify },
+    LeaveNotify: NotifyEvent { code == EventCode::LeaveNotify },
+    FocusIn: FocusEvent { code == EventCode::FocusIn },
+    FocusOut: FocusEvent { code == EventCode::FocusOut },
+    KeymapNotify: KeymapNotifyEvent { code == EventCode::KeymapNotify },
+    Expose: ExposeEvent { code == EventCode::Expose },
+    GraphicsExposure: GraphicsExposureEvent { code == EventCode::GraphicsExposure },
+    NoExposure: NoExposureEvent { code == EventCode::NoExposure },
+    VisibilityNotify: VisibilityNotifyEvent { code == EventCode::VisibilityNotify },
+    CreateNotify: CreateNotifyEvent { code == EventCode::CreateNotify },
+    DestroyNotify: DestroyNotifyEvent { code == EventCode::DestroyNotify },
+    UnmapNotify: UnmapNotifyEvent { code == EventCode::UnmapNotify },
+    MapNotify: MapNotifyEvent { code == EventCode::MapNotify },
+    MapRequest: MapRequestEvent { code == EventCode::MapRequest },
+    ReparentNotify: ReparentNotifyEvent { code == EventCode::ReparentNotify },
+    ConfigureNotify: ConfigureNotifyEvent { code == EventCode::ConfigureNotify },
+    ConfigureRequest: ConfigureRequestEvent { code == EventCode::ConfigureRequest },
+    GravityNotify: GravityNotifyEvent { code == EventCode::GravityNotify },
+    ResizeRequest: ResizeRequestEvent { code == EventCode::ResizeRequest },
+    CirculateNotify: CirculateNotifyEvent { code == EventCode::CirculateNotify },
+    CirculateRequest: CirculateRequestEvent { code == EventCode::CirculateRequest },
+    PropertyNotify: PropertyNotifyEvent { code == EventCode::PropertyNotify },
+    SelectionClear: SelectionClearEvent { code == EventCode::SelectionClear },
+    SelectionRequest: SelectionRequestEvent { code == EventCode::SelectionRequest },
+    SelectionNotify: SelectionNotifyEvent { code == EventCode::SelectionNotify },
+    ColormapNotify: ColormapNotifyEvent { code == EventCode::ColormapNotify },
+    ClientMessage: ClientMessageEvent { code == EventCode::ClientMessage },
+    MappingNotify: MappingNotifyEvent { code == EventCode::MappingNotify },
+    UnknownCore: u8[31] { code > EventCode::MappingNotify && code < 64 },
+    Ext: u8[31] { code >= 64 && code < 128 },
+};
+
+type KeyEvent = container {
+    keycode: u8,
+    sequence_number: u16,
+    time: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32, // 0 for None
+    root_x: i16,
+    root_y: i16,
+    event_x: i16,
+    event_y: i16,
+    keybutmask: Keybutmask,
+    same_screen: bool,
+    .pad: 1,
+};
+
+type ButtonEvent = container {
+    button: u8,
+    sequence_number: u16,
+    time: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32, // 0 for None
+    root_x: i16,
+    root_y: i16,
+    event_x: i16,
+    event_y: i16,
+    keybutmask: Keybutmask,
+    same_screen: bool,
+    .pad: 1,
+};
+
+type MotionNotifyEvent = container {
+    is_hint: bool,
+    sequence_number: u16,
+    time: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32, // 0 for None
+    root_x: i16,
+    root_y: i16,
+    event_x: i16,
+    event_y: i16,
+    keybutmask: Keybutmask,
+    same_screen: bool,
+    .pad: 1,
+};
+
+type NotifyDetail = enum u8 {
+    Ancestor = 0,
+    Virtual,
+    Inferior,
+    Nonlinear,
+    NonlinearVirtual,
+};
+
+type NotifyMode = enum u8 {
+    Normal = 0,
+    Grab,
+    Ungrab,
+};
+
+type NotifyFlags = bitfield u8 {
+    Focus = 0x01,
+    SameScreen,
+};
+
+type NotifyEvent = container {
+    detail: NotifyDetail,
+    sequence_number: u16,
+    time: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32, // 0 for None
+    root_x: i16,
+    root_y: i16,
+    event_x: i16,
+    event_y: i16,
+    keybutmask: Keybutmask,
+    mode: NotifyMode,
+    flags: NotifyFlags,
+};
+
+type FocusDetail = enum u8 {
+    Ancestor = 0,
+    Virtual,
+    Inferior,
+    Nonlinear,
+    NonlinearVirtual,
+    Pointer,
+    PointerRoot,
+    None,
+};
+
+type FocusMode = enum u8 {
+    Normal = 0,
+    Grab,
+    Ungrab,
+    WhileGrabbed
+};
+
+type FocusEvent = container {
+    detail: FocusDetail,
+    sequence_number: u16,
+    event_window: u32,
+    mode: FocusMode,
+    .pad: 23,
+};
+
+type KeymapNotifyEvent = container {
+    // first byte omitted
+    keys: u8[31],
+};
+
+type ExposeEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    window: u32,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    count: u16,
+    .pad: 14,
+};
+
+type GraphicsExposureEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    drawable: u32,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    minor_opcode: u16,
+    count: u16,
+    major_opcode: u8,
+    .pad: 11,
+};
+
+type NoExposureEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    drawable: u32,
+    minor_opcode: u16,
+    major_opcode: u8,
+    .pad: 21,
+};
+
+type VisibilityState = enum u8 {
+    Unobscured = 0,
+    PartiallyObscured,
+    FullyObscured,
+};
+
+type VisibilityNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    window: u32,
+    state: VisibilityState,
+    .pad: 23,
+};
+
+type CreateNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    parent_window: u32,
+    window: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    override_redirect: bool,
+    .pad: 9,
+};
+
+type DestroyNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    .pad: 20,
+};
+
+type UnmapNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    from_configure: bool,
+    .pad: 19,
+};
+
+type MapNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    override_redirect: bool,
+    .pad: 19,
+};
+
+type MapRequestEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    .pad: 20,
+};
+
+type ReparentNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    parent_window: u32,
+    x: i16,
+    y: i16,
+    override_redirect: bool,
+    .pad: 11,
+};
+
+type ConfigureNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    above_sibling: u32, // 0 for None
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    override_redirect: bool,
+    .pad: 5,
+};
+
+type ConfigureRequestEvent = container {
+    stack_mode: StackMode,
+    sequence_number: u16,
+    parent_window: u32,
+    window: u32,
+    sibling: u32, // 0 for None
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    bitmask: ConfigureWindowBitmask, 
+    .pad: 4,
+};
+
+type GravityNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    x: i16,
+    y: i16,
+    .pad: 16,
+};
+
+type ResizeRequestEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    window: u32,
+    width: u16,
+    height: u16,
+    .pad: 20,
+};
+
+type CirculatePlace = enum u8 {
+    Top = 0,
+    Bottom,
+};
+
+type CirculateNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_window: u32,
+    window: u32,
+    .pad: 4,
+    place: CirculatePlace,
+    .pad: 15,
+};
+
+type CirculateRequestEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    parent_window: u32,
+    window: u32,
+    .pad: 4,
+    place: CirculatePlace,
+    .pad: 15,
+};
+
+type PropertyNotifyState = enum u8 {
+    NewValue = 0,
+    Deleted,
+};
+
+type PropertyNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    window: u32,
+    name_atom: u32,
+    time: u32,
+    state: PropertyNotifyState,
+    .pad: 15,
+};
+
+type SelectionClearEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    time: u32,
+    owner_window: u32,
+    selection_atom: u32,
+    .pad: 16,
+};
+
+type SelectionRequestEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    time: u32, // 0 for Now
+    owner_window: u32,
+    requestor_window: u32,
+    selection_atom: u32,
+    target_atom: u32,
+    property_atom: u32, // 0 for None
+    .pad: 4,
+};
+
+type SelectionNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    time: u32, // 0 for Now
+    requestor_window: u32,
+    selection_atom: u32,
+    target_atom: u32,
+    property_atom: u32, // 0 for None
+    .pad: 8,
+};
+
+type ColormapNotifyState = enum u8 {
+    Uninstalled = 0,
+    Installed,
+};
+
+type ColormapNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    window: u32,
+    colormap: u32, // 0 for none
+    is_new: bool,
+    state: ColormapNotifyState,
+    .pad: 18,
+};
+
+type ClientMessageEvent = container {
+    format: u8,
+    sequence_number: u16,
+    window: u32,
+    type_atom: u32,
+    data: u8[20],
+};
+
+type MappingNotifyRequest = enum u8 {
+    Modifier = 0,
+    Keyboard,
+    Pointer,
+};
+
+type MappingNotifyEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    request: MappingNotifyRequest,
+    first_keycode: u8,
+    count: u8,
+    .pad: 25,
+};
+
+// responses
+
+type Response = container {
+    code: u8,
+    body: ResponseBody(code),
+};
+
+type ResponseBody(code: u8) = container +tagged_enum {
+    ErrorReply: ErrorReply { code == 0 },
+    Reply: Reply { code == 1 },
+    Event: Event(code) { code >= 2 },
+};
+
+// requests
+
+type MajorOpcode = enum u8 {
+    CreateWindow = 1,
+    ChangeWindowAttributes,
+    GetWindowAttributes,
+    DestroyWindow,
+    DestroySubwindows,
+    ChangeSaveSet,
+    ReparentWindow,
+    MapWindow,
+    MapSubwindows,
+    UnmapWindow,
+    UnmapSubwindows,
+    ConfigureWindow,
+    CirculateWindow,
+    GetGeometry,
+    QueryTree,
+    InternAtom,
+    GetAtomName,
+    ChangeProperty,
+    DeleteProperty,
+    GetProperty,
+    ListProperties,
+    SetSelectionOwner,
+    GetSelectionOwner,
+    ConvertSelection,
+    SendEvent,
+    GrabPointer,
+    UngrabPointer,
+    GrabButton,
+    UngrabButton,
+    ChangeActivePointerGrab,
+    GrabKeyboard,
+    UngrabKeyboard,
+    GrabKey,
+    UngrabKey,
+    AllowEvents,
+    GrabServer,
+    UngrabServer,
+    QueryPointer,
+    GetMotionEvents,
+    TranslateCoordinates,
+    WarpPointer,
+    SetInputFocus,
+    GetInputFocus,
+    QueryKeymap,
+    OpenFont,
+    CloseFont,
+    QueryFont,
+    QueryTextExtents,
+    ListFonts,
+    ListFontsWithInfo,
+    SetFontPath,
+    GetFontPath,
+    CreatePixmap,
+    FreePixmap,
+    CreateGC,
+    ChangeGC,
+    CopyGC,
+    SetDashes,
+    SetClipRectangles,
+    FreeGC,
+    ClearArea,
+    CopyArea,
+    CopyPlane,
+    PolyPoint,
+    PolyLine,
+    PolySegment,
+    PolyRectangle,
+    PolyArc,
+    FillPoly,
+    PolyFillRectangle,
+    PolyFillArc,
+    PutImage,
+    GetImage,
+    PolyText8,
+    PolyText16,
+    ImageText8,
+    ImageText16,
+    CreateColormap,
+    FreeColormap,
+    CopyColormapAndFree,
+    InstallColormap,
+    UninstallColormap,
+    ListInstalledColormaps,
+    AllocColor,
+    AllocNamedColor,
+    AllocColorCells,
+    AllocColorPlanes,
+    FreeColors,
+    StoreColors,
+    StoreNamedColor,
+    QueryColors,
+    LookupColor,
+    CreateCursor,
+    CreateGlyphCursor,
+    FreeCursor,
+    RecolorCursor,
+    QueryBestSize,
+    QueryExtension,
+    ListExtensions,
+    ChangeKeyboardMapping,
+    GetKeyboardMapping,
+    ChangeKeyboardControl,
+    GetKeyboardControl,
+    Bell,
+    ChangePointerControl,
+    GetPointerControl,
+    SetScreenSaver,
+    GetScreenSaver,
+    ChangeHosts,
+    ListHosts,
+    SetAccessControl,
+    SetCloseDownMode,
+    KillClient,
+    RotateProperties,
+    ForceScreenSaver,
+    SetPointerMapping,
+    GetPointerMapping,
+    SetModifierMapping,
+    GetModifierMapping,
+    NoOperation = 127,
+};
+
+type Request(pad_len: u64) = container {
+    major_opcode: u8,
+    minor_opcode: u8,
+    length: u16,
+    ext_length: u32 { length == 0 },
+    data: u8[pad_len],
+    /*data: container [(ext_length ?: length :> u32)*4-pad(4, )] {
+        data: u8[pad_len], // RequestBody(major_opcode, minor_opcode, ext_length ?: length :> u32)
+    },*/
+    .pad: pad(4, pad_len) - pad_len
+};
+
+type RequestBody(opcode: u8, minor_opcode: u8, request_length: u32) = container +tagged_enum {
+    CreateWindow: CreateWindow {opcode == MajorOpcode::CreateWindow},
+    ChangeWindowAttributes: ChangeWindowAttributes {opcode == MajorOpcode::ChangeWindowAttributes},
+    GetWindowAttributes: GetWindowAttributes {opcode == MajorOpcode::GetWindowAttributes},
+    DestroyWindow: DestroyWindow {opcode == MajorOpcode::DestroyWindow},
+    DestroySubwindows: DestroySubwindows {opcode == MajorOpcode::DestroySubwindows},
+    ChangeSaveSet: ChangeSaveSet {opcode == MajorOpcode::ChangeSaveSet},
+    ReparentWindow: ReparentWindow {opcode == MajorOpcode::ReparentWindow},
+    MapWindow: MapWindow {opcode == MajorOpcode::MapWindow},
+    MapSubwindows: MapSubwindows {opcode == MajorOpcode::MapSubwindows},
+    UnmapWindow: UnmapWindow {opcode == MajorOpcode::UnmapWindow},
+    UnmapSubwindows: UnmapSubwindows {opcode == MajorOpcode::UnmapSubwindows},
+    ConfigureWindow: ConfigureWindow {opcode == MajorOpcode::ConfigureWindow},
+    CirculateWindow: CirculateWindow {opcode == MajorOpcode::CirculateWindow},
+    GetGeometry: GetGeometry {opcode == MajorOpcode::GetGeometry},
+    QueryTree: QueryTree {opcode == MajorOpcode::QueryTree},
+    InternAtom: InternAtom {opcode == MajorOpcode::InternAtom},
+    GetAtomName: GetAtomName {opcode == MajorOpcode::GetAtomName},
+    ChangeProperty: ChangeProperty {opcode == MajorOpcode::ChangeProperty},
+    DeleteProperty: DeleteProperty {opcode == MajorOpcode::DeleteProperty},
+    GetProperty: GetProperty {opcode == MajorOpcode::GetProperty},
+    ListProperties: ListProperties {opcode == MajorOpcode::ListProperties},
+    SetSelectionOwner: SetSelectionOwner {opcode == MajorOpcode::SetSelectionOwner},
+    GetSelectionOwner: GetSelectionOwner {opcode == MajorOpcode::GetSelectionOwner},
+    ConvertSelection: ConvertSelection {opcode == MajorOpcode::ConvertSelection},
+    SendEvent: SendEvent {opcode == MajorOpcode::SendEvent},
+    GrabPointer: GrabPointer {opcode == MajorOpcode::GrabPointer},
+    UngrabPointer: UngrabPointer {opcode == MajorOpcode::UngrabPointer},
+    GrabButton: GrabButton {opcode == MajorOpcode::GrabButton},
+    UngrabButton: UngrabButton {opcode == MajorOpcode::UngrabButton},
+    ChangeActivePointerGrab: ChangeActivePointerGrab {opcode == MajorOpcode::ChangeActivePointerGrab},
+    GrabKeyboard: GrabKeyboard {opcode == MajorOpcode::GrabKeyboard},
+    UngrabKeyboard: UngrabKeyboard {opcode == MajorOpcode::UngrabKeyboard},
+    GrabKey: GrabKey {opcode == MajorOpcode::GrabKey},
+    UngrabKey: UngrabKey {opcode == MajorOpcode::UngrabKey},
+    AllowEvents: AllowEvents {opcode == MajorOpcode::AllowEvents},
+    GrabServer: GrabServer {opcode == MajorOpcode::GrabServer},
+    UngrabServer: UngrabServer {opcode == MajorOpcode::UngrabServer},
+    QueryPointer: QueryPointer {opcode == MajorOpcode::QueryPointer},
+    GetMotionEvents: GetMotionEvents {opcode == MajorOpcode::GetMotionEvents},
+    TranslateCoordinates: TranslateCoordinates {opcode == MajorOpcode::TranslateCoordinates},
+    WarpPointer: WarpPointer {opcode == MajorOpcode::WarpPointer},
+    SetInputFocus: SetInputFocus {opcode == MajorOpcode::SetInputFocus},
+    GetInputFocus: GetInputFocus {opcode == MajorOpcode::GetInputFocus},
+    QueryKeymap: QueryKeymap {opcode == MajorOpcode::QueryKeymap},
+    OpenFont: OpenFont {opcode == MajorOpcode::OpenFont},
+    CloseFont: CloseFont {opcode == MajorOpcode::CloseFont},
+    QueryFont: QueryFont {opcode == MajorOpcode::QueryFont},
+    QueryTextExtents: QueryTextExtents(request_length) {opcode == MajorOpcode::QueryTextExtents},
+    ListFonts: ListFonts {opcode == MajorOpcode::ListFonts},
+    ListFontsWithInfo: ListFontsWithInfo {opcode == MajorOpcode::ListFontsWithInfo},
+    SetFontPath: SetFontPath {opcode == MajorOpcode::SetFontPath},
+    GetFontPath: GetFontPath {opcode == MajorOpcode::GetFontPath},
+    CreatePixmap: CreatePixmap {opcode == MajorOpcode::CreatePixmap},
+    FreePixmap: FreePixmap {opcode == MajorOpcode::FreePixmap},
+    CreateGC: CreateGC {opcode == MajorOpcode::CreateGC},
+    ChangeGC: ChangeGC {opcode == MajorOpcode::ChangeGC},
+    CopyGC: CopyGC {opcode == MajorOpcode::CopyGC},
+    SetDashes: SetDashes {opcode == MajorOpcode::SetDashes},
+    SetClipRectangles: SetClipRectangles {opcode == MajorOpcode::SetClipRectangles},
+    FreeGC: FreeGC {opcode == MajorOpcode::FreeGC},
+    ClearArea: ClearArea {opcode == MajorOpcode::ClearArea},
+    CopyArea: CopyArea {opcode == MajorOpcode::CopyArea},
+    CopyPlane: CopyPlane {opcode == MajorOpcode::CopyPlane},
+    PolyPoint: PolyPoint {opcode == MajorOpcode::PolyPoint},
+    PolyLine: PolyLine {opcode == MajorOpcode::PolyLine},
+    PolySegment: PolySegment {opcode == MajorOpcode::PolySegment},
+    PolyRectangle: PolyRectangle {opcode == MajorOpcode::PolyRectangle},
+    PolyArc: PolyArc {opcode == MajorOpcode::PolyArc},
+    FillPoly: FillPoly {opcode == MajorOpcode::FillPoly},
+    PolyFillRectangle: PolyFillRectangle {opcode == MajorOpcode::PolyFillRectangle},
+    PolyFillArc: PolyFillArc {opcode == MajorOpcode::PolyFillArc},
+    PutImage: PutImage {opcode == MajorOpcode::PutImage},
+    GetImage: GetImage {opcode == MajorOpcode::GetImage},
+    PolyText8: PolyText8 {opcode == MajorOpcode::PolyText8},
+    PolyText16: PolyText16 {opcode == MajorOpcode::PolyText16},
+    ImageText8: ImageText8 {opcode == MajorOpcode::ImageText8},
+    ImageText16: ImageText16(request_length) {opcode == MajorOpcode::ImageText16},
+    CreateColormap: CreateColormap {opcode == MajorOpcode::CreateColormap},
+    FreeColormap: FreeColormap {opcode == MajorOpcode::FreeColormap},
+    CopyColormapAndFree: CopyColormapAndFree {opcode == MajorOpcode::CopyColormapAndFree},
+    InstallColormap: InstallColormap {opcode == MajorOpcode::InstallColormap},
+    UninstallColormap: UninstallColormap {opcode == MajorOpcode::UninstallColormap},
+    ListInstalledColormaps: ListInstalledColormaps {opcode == MajorOpcode::ListInstalledColormaps},
+    AllocColor: AllocColor {opcode == MajorOpcode::AllocColor},
+    AllocNamedColor: AllocNamedColor {opcode == MajorOpcode::AllocNamedColor},
+    AllocColorCells: AllocColorCells {opcode == MajorOpcode::AllocColorCells},
+    AllocColorPlanes: AllocColorPlanes {opcode == MajorOpcode::AllocColorPlanes},
+    FreeColors: FreeColors {opcode == MajorOpcode::FreeColors},
+    StoreColors: StoreColors {opcode == MajorOpcode::StoreColors},
+    StoreNamedColor: StoreNamedColor {opcode == MajorOpcode::StoreNamedColor},
+    QueryColors: QueryColors {opcode == MajorOpcode::QueryColors},
+    LookupColor: LookupColor {opcode == MajorOpcode::LookupColor},
+    CreateCursor: CreateCursor {opcode == MajorOpcode::CreateCursor},
+    CreateGlyphCursor: CreateGlyphCursor {opcode == MajorOpcode::CreateGlyphCursor},
+    FreeCursor: FreeCursor {opcode == MajorOpcode::FreeCursor},
+    RecolorCursor: RecolorCursor {opcode == MajorOpcode::RecolorCursor},
+    QueryBestSize: QueryBestSize {opcode == MajorOpcode::QueryBestSize},
+    QueryExtension: QueryExtension {opcode == MajorOpcode::QueryExtension},
+    ListExtensions: ListExtensions {opcode == MajorOpcode::ListExtensions},
+    ChangeKeyboardMapping: ChangeKeyboardMapping(minor_opcode) {opcode == MajorOpcode::ChangeKeyboardMapping},
+    GetKeyboardMapping: GetKeyboardMapping {opcode == MajorOpcode::GetKeyboardMapping},
+    ChangeKeyboardControl: ChangeKeyboardControl {opcode == MajorOpcode::ChangeKeyboardControl},
+    GetKeyboardControl: GetKeyboardControl {opcode == MajorOpcode::GetKeyboardControl},
+    Bell: Bell {opcode == MajorOpcode::Bell},
+    ChangePointerControl: ChangePointerControl {opcode == MajorOpcode::ChangePointerControl},
+    GetPointerControl: GetPointerControl {opcode == MajorOpcode::GetPointerControl},
+    SetScreenSaver: SetScreenSaver {opcode == MajorOpcode::SetScreenSaver},
+    GetScreenSaver: GetScreenSaver {opcode == MajorOpcode::GetScreenSaver},
+    ChangeHosts: ChangeHosts {opcode == MajorOpcode::ChangeHosts},
+    ListHosts: ListHosts {opcode == MajorOpcode::ListHosts},
+    SetAccessControl: SetAccessControl {opcode == MajorOpcode::SetAccessControl},
+    SetCloseDownMode: SetCloseDownMode {opcode == MajorOpcode::SetCloseDownMode},
+    KillClient: KillClient {opcode == MajorOpcode::KillClient},
+    RotateProperties: RotateProperties {opcode == MajorOpcode::RotateProperties},
+    ForceScreenSaver: ForceScreenSaver {opcode == MajorOpcode::ForceScreenSaver},
+    SetPointerMapping: SetPointerMapping(minor_opcode) {opcode == MajorOpcode::SetPointerMapping},
+    GetPointerMapping: GetPointerMapping {opcode == MajorOpcode::GetPointerMapping},
+    SetModifierMapping: SetModifierMapping(minor_opcode) {opcode == MajorOpcode::SetModifierMapping},
+    GetModifierMapping: GetModifierMapping(minor_opcode) {opcode == MajorOpcode::GetModifierMapping},
+    NoOperation: NoOperation {opcode == MajorOpcode::NoOperation},
+    Ext: ExtRequest { opcode > 127 }
+};
+
+type ExtRequest = container {
+    data: u8[..],
+};
+
+type WindowClass = enum u16 {
+    CopyFromParent = 0,
+    InputOutput,
+    InputOnly,
+};
+
+type WindowBitmask = bitfield u32 {
+    BackgroundPixmap = 0x01,
+    BackgroundPixel,
+    BorderPixmap,
+    BorderPixel,
+    BitGravity,
+    WinGravity,
+    BackingStore,
+    BackingPlanes,
+    BackingPixel,
+    OverrideRedirect,
+    SaveUnder,
+    EventMask,
+    DoNotPropagateMask,
+    Colormap,
+    Cursor,
+};
+
+type BackingStore = enum u8 {
+    NotUseful = 0,
+    WhenMapped,
+    Always,
+};
+
+type WindowAttributes = container {
+    bitmask: WindowBitmask,
+    background_pixmap: u32 { bitmask.BackgroundPixmap }, // 0 for None, 1 for ParentRelative
+    background_pixel: u32 { bitmask.BackgroundPixel },
+    border_pixmap: u32 { bitmask.BorderPixmap }, // 0 for CopyFromParent
+    border_pixel: u32 { bitmask.BorderPixel },
+    bit_gravity: BitGravity { bitmask.BitGravity },
+    win_gravity: WinGravity { bitmask.WinGravity },
+    backing_store: BackingStore { bitmask.BackingStore },
+    backing_planes: u32 { bitmask.BackingPlanes },
+    backing_pixel: u32 { bitmask.BackingPixel },
+    override_redirect: bool { bitmask.OverrideRedirect },
+    save_under: bool { bitmask.SaveUnder },
+    event_mask: EventMask { bitmask.EventMask },
+    do_not_propagate_mask: EventMask { bitmask.DoNotPropagateMask },
+    colormap: u32 { bitmask.Colormap }, // 0 for CopyFromParent
+    cursor: u32 { bitmask.Cursor }, // 0 for None
+};
+
+// reserved => depth: u8
+type CreateWindow = container {
+    window: u32,
+    parent: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    class: WindowClass,
+    visual_id: u32, // 0 for CopyFromParent
+    attributes: WindowAttributes,
+};
+
+type ChangeWindowAttributes = container {
+    window: u32,
+    attributes: WindowAttributes,
+};
+
+type GetWindowAttributes = container {
+    window: u32,
+};
+
+type MapState = enum u8 {
+    Unmapped = 0,
+    Unviewable,
+    Viewable,
+};
+
+// reserved => BackingStore
+type GetWindowAttributesReply = container {
+    visual_id: u32,
+    class: WindowClass, // not CopyFromParent
+    bit_gravity: BitGravity,
+    win_gravity: WinGravity,
+    backing_planes: u32,
+    backing_pixel: u32,
+    save_under: bool,
+    map_is_installed: bool,
+    map_state: MapState,
+    override_redirect: bool,
+    colormap: u32, // 0 for None
+    all_event_mask: EventMask,
+    local_event_mask: EventMask,
+    do_not_propagate_mask: EventMask,
+};
+
+type DestroyWindow = container {
+    window: u32,
+};
+
+type DestroySubwindows = container {
+    window: u32,
+};
+
+type InsertDelete = enum u8 {
+    Insert = 0,
+    Delete,
+};
+
+// reserved => InsertDelete
+type ChangeSaveSet = container {
+    window: u32,
+};
+
+type ReparentWindow = container {
+    window: u32,
+    parent: u32,
+    x: i16,
+    y: i16,
+};
+
+type MapWindow = container {
+    window: u32,
+};
+
+type MapSubwindows = container {
+    window: u32,
+};
+
+type UnmapWindow = container {
+    window: u32,
+};
+
+type UnmapSubwindows = container {
+    window: u32,
+};
+
+type ConfigureWindowBitmask = bitfield u16 {
+    X = 0x01,
+    Y,
+    Width,
+    Height,
+    BorderWidth,
+    Sibling,
+    StackMode,
+};
+
+type StackMode = enum u8 {
+    Above = 0,
+    Below,
+    TopIf,
+    BottomIf,
+    Opposite,
+};
+
+type ConfigureWindow = container {
+    window: u32,
+    bitmask: ConfigureWindowBitmask,
+    reserved: u16,
+    x: i16 { bitmask.X },
+    y: i16 { bitmask.Y },
+    width: u16 { bitmask.Width },
+    height: u16 { bitmask.Height },
+    border_width: u16 { bitmask.BorderWidth },
+    sibling: u32 { bitmask.Sibling },
+    stack_mode: StackMode { bitmask.StackMode },
+};
+
+type CirculateWindowDirection = enum u8 {
+    RaiseLowest = 0,
+    LowerHighest,
+};
+
+// reserved => CirculateWindowDirection
+type CirculateWindow = container {
+    window: u32,
+};
+
+type GetGeometry = container {
+    drawable: u32,
+};
+
+// reserved => depth: u8,
+type GetGeometryReply = container {
+    root_window: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    .pad: 10,
+};
+
+type QueryTree = container {
+    window: u32,
+};
+
+type QueryTreeReply = container {
+    root_window: u32,
+    parent_window: u32, // 0 for None
+    child_count: u16 +auto,
+    .pad: 14,
+    children_windows: u32[child_count],
+};
+
+// reserved => only-if-exists
+type InternAtom = container {
+    name_len: u16 +auto,
+    reserved: u16,
+    name: utf8(name_len),
+};
+
+type InternAtomReply = container {
+    atom: u32, // 0 for None
+    .pad: 20,
+};
+
+type GetAtomName = container {
+    atom: u32,
+};
+
+type GetAtomNameReply = container {
+    name_len: u16 +auto,
+    .pad: 22,
+    name: utf8(name_len),
+};
+
+type ChangePropertyMode = enum u8 {
+    Replace = 0,
+    Prepend,
+    Append,
+};
+
+type ChangePropertyFormat = enum u8 {
+    L8 = 8,
+    L16 = 16,
+    L32 = 32,
+};
+
+// reserved => ChangePropertyMode
+type ChangeProperty = container {
+    window: u32,
+    property: u32,
+    type_: u32,
+    format: ChangePropertyFormat,
+    .pad: 3,
+    length: u32,
+    data: u8[length * format :> u8 :> u32 / 8],
+};
+
+type DeleteProperty = container {
+    window: u32,
+    property: u32,
+};
+
+// reserved => delete: bool,
+type GetProperty = container {
+    window: u32,
+    property: u32,
+    type_: u32, // can be an atom or 0 for AnyPropertyType
+    long_offset: u32,
+    long_length: u32,
+};
+
+// reserved => format: u8,
+type GetPropertyReply(format: u8) = container {
+    type_: u32, // 0 for None
+    bytes_after: u32,
+    length: u32,
+    .pad: 12,
+    value: u8[length * format :> u32 / 8],
+};
+
+type ListProperties = container {
+    window: u32,
+};
+
+type ListPropertiesReply = container {
+    atom_count: u16 +auto,
+    .pad: 22,
+    atoms: u32[atom_count],
+};
+
+type SetSelectionOwner = container {
+    window: u32, // 0 for None
+    selection: u32,
+    time: u32, // 0 for Now
+};
+
+type GetSelectionOwner = container {
+    selection: u32,
+};
+
+type GetSelectionOwnerReply = container {
+    window: u32,
+    .pad: 20,
+};
+
+type ConvertSelection = container {
+    window: u32,
+    selection: u32,
+    target: u32,
+    property: u32, // or 0 for None
+    time: u32, // or 0 for Now
+};
+
+// reserved => propagate: bool,
+type SendEvent = container {
+    window: u32, // 0 for PointerWindow, 1 for InputFocus
+    event_mask: EventMask,
+    code: u8,
+    event: Event(code),
+};
+
+type PointerMode = enum u8 {
+    Synchronous = 0,
+    Asynchronous,
+};
+
+// reserved => owner_events: bool,
+type GrabPointer = container {
+    grab_window: u32,
+    event_mask: PointerEventMask,
+    pointer_mode: PointerMode,
+    keyboard_mode: PointerMode,
+    confine_to_window: u32, // 0 for None
+    cursor: u32, // 0 for None
+    time: u32, // 0 for Now
+};
+
+type GrabStatus = enum u8 {
+    Success = 0,
+    AlreadyGrabbed,
+    InvalidTime,
+    NotViewable,
+    Frozen,
+};
+
+// reserved: GrabStatus,
+type GrabPointerReply = container {
+    .pad: 24,
+};
+
+type UngrabPointer = container {
+    time: u32, // 0 for Now
+};
+
+// reserved => owner_events: bool,
+type GrabButton = container {
+    grab_window: u32,
+    event_mask: PointerEventMask,
+    pointer_mode: PointerMode,
+    keyboard_mode: PointerMode,
+    confine_to_window: u32, // 0 for None
+    cursor: u32, // 0 for None
+    button: u8, // 0 for AnyButton
+    reserved: u8,
+    keymask: Keymask, // 0x8000 for AnyModifier
+};
+
+// reserved => button: u8, // 0 for AnyButton
+type UngrabButton = container {
+    grab_window: u32,
+    keymask: Keymask, // 0x8000 for AnyModifier
+    reserved: u16,
+};
+
+type ChangeActivePointerGrab = container {
+    cursor: u32, // 0 for None
+    time: u32, // 0 for Now
+    event_mask: PointerEventMask,
+    reserved: u16,
+};
+
+// reserved => owner_events: bool,
+type GrabKeyboard = container {
+    grab_window: u32,
+    time: u32, // 0 for Now
+    pointer_mode: PointerMode,
+    keyboard_mode: PointerMode,
+    reserved: u16,
+};
+
+// reserved: GrabStatus,
+type GrabKeyboardReply = container {
+    .pad: 24,
+};
+
+type UngrabKeyboard = container {
+    time: u32, // 0 for Now
+};
+
+// reserved => owner_events: bool,
+type GrabKey = container {
+    grab_window: u32,
+    keymask: Keymask, // 0x8000 for AnyModifier
+    keycode: u8, // 0 for AnyKey
+    pointer_mode: PointerMode,
+    keyboard_mode: PointerMode,
+    .pad: 3,
+};
+
+// reserved => keycode: u8, // 0 for AnyKey
+type UngrabKey = container {
+    grab_window: u32,
+    keymask: Keymask, // 0x8000 for AnyModifier
+    reserved: u16,
+};
+
+type AllowEventsMode = enum u8 {
+    AsyncPointer = 0,
+    SyncPointer,
+    ReplayPointer,
+    AsyncKeyboard,
+    SyncKeyboard,
+    ReplayKeyboard,
+    AsyncBoth,
+    SyncBoth,
+};
+
+// reserved => AllowEventsMode
+type AllowEvents = container {
+    time: u32, // 0 for Now
+};
+
+type GrabServer = container {
+};
+
+type UngrabServer = container {
+};
+
+type QueryPointer = container {
+    window: u32,
+};
+
+// reserved => same_screen: bool,
+type QueryPointerReply = container {
+    root_window: u32,
+    child_window: u32, // 0 for None
+    root_x: i16,
+    root_y: i16,
+    win_x: i16,
+    win_y: i16,
+    keybutmask: Keybutmask,
+    .pad: 6,
+};
+
+type GetMotionEvents = container {
+    window: u32,
+    start_time: u32, // 0 for Now
+    stop_time: u32, // 0 for Now
+};
+
+type TimeCoord = container {
+    time: u32,
+    x: i16,
+    y: i16,
+};
+
+type GetMotionEventsReply = container {
+    timecoord_count: u32 +auto,
+    .pad: 20,
+    events: TimeCoord[timecoord_count],
+};
+
+type TranslateCoordinates = container {
+    src_window: u32,
+    dst_window: u32,
+    src_x: i16,
+    src_y: i16,
+};
+
+// reserved => same_screen: bool,
+type TranslateCoordinatesReply = container {
+    child_window: u32, // 0 for None
+    dst_x: i16,
+    dst_y: i16,
+    .pad: 16,
+};
+
+type WarpPointer = container {
+    src_window: u32, // 0 for None
+    dst_window: u32, // 0 for None
+    src_x: i16,
+    src_y: i16,
+    src_width: u16,
+    src_height: u16,
+    dst_x: i16,
+    dst_y: i16,
+};
+
+type InputFocusRevert = enum u8 {
+    None = 0,
+    PointerRoot,
+    Parent,
+};
+
+// reserved => InputFocusRevert
+type SetInputFocus = container {
+    window: u32, // 0 for None, 1 for PointerRoot
+    time: u32, // 0 for Now
+};
+
+type GetInputFocus = container {
+};
+
+// reserved => InputFocusRevert
+type GetInputFocusReply = container {
+    focus_window: u32, // 0 for None, 1 for PointerRoot
+    .pad: 20,
+};
+
+type QueryKeymap = container {
+};
+
+type QueryKeymapReply = container {
+    keys: u8[32],
+};
+
+type OpenFont = container {
+    font: u32,
+    name_len: u16 +auto,
+    reserved: u16,
+    name: utf8(name_len),
+};
+
+type CloseFont = container {
+    font: u32,
+};
+
+type QueryFont = container {
+    fontable: u32,
+};
+
+type FontProperty = container {
+    name_atom: u32,
+    value: u32,
+};
+
+type CharInfo = container {
+    left_side_bearing: i16,
+    right_side_bearing: i16,
+    character_width: i16,
+    ascent: i16,
+    descent: i16,
+    attributes: u16,
+};
+
+type DrawDirection = enum u8 {
+    LeftToRight = 0,
+    RightToLeft,
+};
+
+type QueryFontReply = container {
+    min_bounds: CharInfo,
+    reserved1: u32,
+    max_bounds: CharInfo,
+    reserved2: u32,
+    min_char_or_byte2: u16,
+    max_char_or_byte2: u16,
+    default_char: u16,
+    fontprop_count: u16 +auto,
+    draw_direction: DrawDirection,
+    min_byte1: u8,
+    max_byte1: u8,
+    all_chars_exist: bool,
+    font_ascent: i16,
+    font_descent: i16,
+    charinfo_count: u32 +auto,
+    fontprops: FontProperty[fontprop_count],
+    charinfos: CharInfo[charinfo_count],
+};
+
+// reserved => odd length, True if pad = 2
+type QueryTextExtents(request_length: u32) = container {
+    fontable: u32,
+    string: utf16((request_length-2)*2),
+};
+
+// reserved => DrawDirection,
+type QueryTextExtentsReply = container {
+    font_ascent: i16,
+    font_descent: i16,
+    overall_ascent: i16,
+    overall_descent: i16,
+    overall_width: i32,
+    overall_left: i32,
+    overall_right: i32,
+    .pad: 4,
+};
+
+type ListFonts = container {
+    max_names: u16,
+    pattern_len: u16 +auto,
+    pattern: utf8(pattern_len),
+};
+
+type ListFontsReply = container {
+    str_count: u16 +auto,
+    .pad: 22,
+    names: Str[str_count],
+};
+
+type ListFontsWithInfo = container {
+    max_names: u16,
+    pattern_len: u16 +auto,
+    pattern: utf8(pattern_len),
+};
+
+// reserved => last_reply_indicator: bool,
+type ListFontsWithInfoReply() = container {
+    min_bounds: CharInfo,
+    reserved1: u32,
+    max_bounds: CharInfo,
+    reserved2: u32,
+    min_char_or_byte2: u16,
+    max_char_or_byte2: u16,
+    default_char: u16,
+    fontprop_count: u16 +auto,
+    draw_direction: DrawDirection,
+    min_byte1: u8,
+    max_byte1: u8,
+    all_chars_exist: bool,
+    font_ascent: i16,
+    font_descent: i16,
+    replies_hint: u32,
+    fontprops: FontProperty[fontprop_count],
+    name: utf8(),
+};
+
+type SetFontPath = container {
+    str_count: u16 +auto,
+    reserved: u16,
+    paths: Str[str_count],
+};
+
+type GetFontPath = container {
+};
+
+type GetFontPathReply = container {
+    str_count: u16 +auto,
+    reserved: u16,
+    paths: Str[str_count],
+};
+
+// reserved => depth: u8,
+type CreatePixmap = container {
+    pixmap: u32,
+    drawable: u32,
+    width: u16,
+    height: u16,
+};
+
+type FreePixmap = container {
+    pixmap: u32,
+};
+
+type GCBitmask = bitfield u32 {
+    Function = 0x01,
+    PlaneMask,
+    Foreground,
+    Background,
+    LineWidth,
+    LineStyle,
+    CapStyle,
+    JoinStyle,
+    FillStyle,
+    FillRule,
+    Tile,
+    Stipple,
+    TileStippleXOrigin,
+    TileStippleYOrigin,
+    Font,
+    SubwindowMode,
+    GraphicsExposures,
+    ClipXOrigin,
+    ClipYOrigin,
+    ClipMask,
+    DashOffset,
+    Dashes,
+    ArcMode,
+};
+
+type GCFunction = enum u8 {
+    Clear = 0,
+    And,
+    AndReverse,
+    Copy,
+    AndInverted,
+    NoOp,
+    Xor,
+    Or,
+    Nor,
+    Equiv,
+    Invert,
+    OrReverse,
+    CopyInverted,
+    OrInverted,
+    Nand,
+    Set,
+};
+
+type LineStyle = enum u8 {
+    Solid = 0,
+    OnOffDash,
+    DoubleDash,
+};
+
+type CapStyle = enum u8 {
+    NotLast = 0,
+    Butt,
+    Round,
+    Projecting,
+};
+
+type JoinStyle = enum u8 {
+    Miter = 0,
+    Round,
+    Bevel,
+};
+
+type FillStyle = enum u8 {
+    Solid = 0,
+    Tiled,
+    Stippled,
+    OpaqueStippled,
+};
+
+type FillRule = enum u8 {
+    EvenOdd = 0,
+    Winding,
+};
+
+type SubwindowMode = enum u8 {
+    ClipByChildren = 0,
+    IncludeInferiors,
+};
+
+type ArcMode = enum u8 {
+    Chord = 0,
+    PieSlice,
+};
+
+type GCAttributes = container {
+    bitmask: GCBitmask,
+    func: GCFunction { bitmask.Function },
+    plane_mask: u32 { bitmask.PlaneMask },
+    foreground: u32 { bitmask.Foreground },
+    background: u32 { bitmask.Background },
+    line_width: u16 { bitmask.LineWidth },
+    line_style: LineStyle { bitmask.LineStyle },
+    cap_style: CapStyle { bitmask.CapStyle },
+    join_style: JoinStyle { bitmask.JoinStyle },
+    fill_style: FillStyle { bitmask.FillStyle },
+    fill_rule: FillRule { bitmask.FillRule },
+    tile: u32 { bitmask.Tile },
+    stipple: u32 { bitmask.Stipple },
+    tile_stipple_x_origin: i16 { bitmask.TileStippleXOrigin },
+    tile_stipple_y_origin: i16 { bitmask.TileStippleYOrigin },
+    font: u32 { bitmask.Font },
+    subwindow_mode: SubwindowMode { bitmask.SubwindowMode },
+    graphics_exposures: bool { bitmask.GraphicsExposures },
+    clip_x_origin: i16 { bitmask.ClipXOrigin },
+    clip_y_origin: i16 { bitmask.ClipYOrigin },
+    clip_mask: u32 { bitmask.ClipMask },
+    dash_offset: u16 { bitmask.DashOffset },
+    dashes: u8 { bitmask.Dashes },
+    arc_mode: ArcMode { bitmask.ArcMode },
+};
+
+type CreateGC = container {
+    gcontext: u32,
+    drawable: u32,
+    attributes: GCAttributes,
+};
+
+type ChangeGC = container {
+    gcontext: u32,
+    attributes: GCAttributes,
+};
+
+type CopyGC = container {
+    src_gcontext: u32,
+    dst_gcontext: u32,
+    bitmask: GCBitmask,
+};
+
+type SetDashes = container {
+    gcontext: u32,
+    dash_offset: u16,
+    dash_count: u16,
+    dashes: u8[dash_count],
+};
+
+type ClipSorting = enum u8 {
+    UnSorted = 0,
+    YSorted,
+    YXSorted,
+    YXBanded,
+};
+
+// reserved => ClipSorting
+type SetClipRectangles = container {
+    gcontext: u32,
+    clip_x_origin: i16,
+    clip_y_origin: i16,
+    rectangles: Rectangle[..],
+};
+
+type FreeGC = container {
+    gcontext: u32,
+};
+
+// reserved => exposures: bool,
+type ClearArea = container {
+    window: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+};
+
+type CopyArea = container {
+    src_drawable: u32,
+    dst_drawable: u32,
+    gcontext: u32,
+    src_x: i16,
+    src_y: i16,
+    dst_x: i16,
+    dst_y: i16,
+    width: u16,
+    height: u16,
+};
+
+type CopyPlane = container {
+    src_drawable: u32,
+    dst_drawable: u32,
+    gcontext: u32,
+    src_x: i16,
+    src_y: i16,
+    dst_x: i16,
+    dst_y: i16,
+    width: u16,
+    height: u16,
+    bit_plane: u32,
+};
+
+type CoordinateMode = enum u8 {
+    Origin = 0,
+    Previous,
+};
+
+// reserved => CoordinateMode,
+type PolyPoint = container {
+    drawable: u32,
+    gcontext: u32,
+    points: Point[..],
+};
+
+// reserved => CoordinateMode,
+type PolyLine = container {
+    drawable: u32,
+    gcontext: u32,
+    points: Point[..],
+};
+
+type Segment = container {
+    p1: Point,
+    p2: Point,
+};
+
+type PolySegment = container {
+    drawable: u32,
+    gcontext: u32,
+    segments: Segment[..],
+};
+
+type PolyRectangle = container {
+    drawable: u32,
+    gcontext: u32,
+    rectangles: Rectangle[..],
+};
+
+type PolyArc = container {
+    drawable: u32,
+    gcontext: u32,
+    arcs: Arc[..],
+};
+
+type Shape = enum u8 {
+    Complex = 0,
+    Nonconvex,
+    Convex,
+};
+
+type FillPoly = container {
+    drawable: u32,
+    gcontext: u32,
+    shape: Shape,
+    coordinate_mode: CoordinateMode,
+    reserved: u16,
+    points: Point[..],
+};
+
+type PolyFillRectangle = container {
+    drawable: u32,
+    gcontext: u32,
+    rectangles: Rectangle[..],
+};
+
+type PolyFillArc = container {
+    drawable: u32,
+    gcontext: u32,
+    arcs: Arc[..],
+};
+
+type ImageFormat = enum u8 {
+    Bitmap = 0,
+    XYPixmap,
+    ZPixmap,
+};
+
+// reserved => ImageFormat
+type PutImage = container {
+    drawable: u32,
+    gcontext: u32,
+    width: u16,
+    height: u16,
+    dst_x: i16,
+    dst_y: i16,
+    left_pad: u8,
+    depth: u8,
+    reserved: u16,
+    data: u8[..],
+};
+
+// reserved => ImageFormat excluding Bitmap
+type GetImage = container {
+    drawable: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    plane_mask: u32,
+};
+
+// reserved => depth: u8,
+type GetImageReply = container {
+    visual: u32, // 0 for None
+    .pad: 20,
+    data: u8[..],
+};
+
+type TextItem8 = container {
+    string_len: u8,
+    delta: i8 { string_len != 255 },
+    string: utf8(string_len) { string_len != 255 },
+    // always big endian
+    font: u32 {string_len == 255},
+};
+
+type PolyText8 = container {
+    drawable: u32,
+    gcontext: u32,
+    x: i16,
+    y: i16,
+    items: TextItem8[..],
+};
+
+type TextItem16 = container {
+    string_len: u8,
+    delta: i8 { string_len != 255 },
+    string: utf16(string_len) { string_len != 255 },
+    // always big endian
+    font: u32 {string_len == 255},
+};
+
+type PolyText16 = container {
+    drawable: u32,
+    gcontext: u32,
+    x: i16,
+    y: i16,
+    items: TextItem16[..],
+};
+
+type ImageText8 = container {
+    drawable: u32,
+    gcontext: u32,
+    x: i16,
+    y: i16,
+    string: utf8(),
+};
+
+type ImageText16(request_length: u32) = container {
+    drawable: u32,
+    gcontext: u32,
+    x: i16,
+    y: i16,
+    string: utf16((request_length-4)*2),
+};
+
+type CreateColormapAlloc = enum u8 {
+    None = 0,
+    All,
+};
+
+// reserved => CreateColormapAlloc,
+type CreateColormap = container {
+    colormap: u32,
+    window: u32,
+    visual: u32,
+};
+
+type FreeColormap = container {
+    colormap: u32,
+};
+
+type CopyColormapAndFree = container {
+    dst_colormap: u32,
+    src_colormap: u32,
+};
+
+type InstallColormap = container {
+    colormap: u32,
+};
+
+type UninstallColormap = container {
+    colormap: u32,
+};
+
+type ListInstalledColormaps = container {
+    window: u32,
+};
+
+type ListInstalledColormapsReply = container {
+    colormap_count: u16 +auto,
+    .pad: 22,
+    colormaps: u32[colormap_count],
+};
+
+type AllocColor = container {
+    colormap: u32,
+    red: u16,
+    green: u16,
+    blue: u16,
+    reserved: u16,
+};
+
+type AllocColorReply = container {
+    red: u16,
+    green: u16,
+    blue: u16,
+    reserved1: u16,
+    pixel: u32,
+    reserved2: u8[12],
+};
+
+type AllocNamedColor = container {
+    colormap: u32,
+    name_len: u16 +auto,
+    reserved: u16,
+    name: utf8(name_len),
+};
+
+type AllocNamedColorReply = container {
+    pixel: u32,
+    exact_red: u16,
+    exact_green: u16,
+    exact_blue: u16,
+    visual_red: u16,
+    visual_green: u16,
+    visual_blue: u16,
+    reserved2: u8[8],
+};
+
+// reserved: contiguous: bool,
+type AllocColorCells = container {
+    colormap: u32,
+    colors: u16,
+    planes: u16,
+};
+
+type AllocColorCellsReply = container {
+    pixel_count: u16 +auto,
+    mask_count: u16 +auto,
+    .pad: 20,
+    pixels: u32[pixel_count],
+    masks: u32[mask_count],
+};
+
+// reserved: contiguous: bool,
+type AllocColorPlanes = container {
+    colormap: u32,
+    colors: u16,
+    reds: u16,
+    greens: u16,
+    blues: u16,
+};
+
+type AllocColorPlanesReply = container {
+    pixel_count: u16 +auto,
+    reserved1: u16,
+    red_mask: u32,
+    green_mask: u32,
+    blue_mask: u32,
+    .pad: 8,
+    pixels: u32[pixel_count],
+};
+
+type FreeColors = container {
+    colormap: u32,
+    plane_mask: u32,
+    pixels: u32[..],
+};
+
+type ColorFlag = enum u8 {
+    Red = 0x01,
+    Green = 0x02,
+    Blue = 0x04,
+};
+
+type ColorItem = container {
+    pixel: u32,
+    red: u16,
+    green: u16,
+    blue: u16,
+    color_flags: u8,
+    reserved: u8,
+};
+
+type StoreColors = container {
+    colormap: u32,
+    items: ColorItem[..],
+};
+
+// reserved => ColorFlag bitfield
+type StoreNamedColor = container {
+    colormap: u32,
+    pixel: u32,
+    name_len: u16 +auto,
+    reserved: u16,
+    name: utf8(name_len),
+};
+
+type QueryColors = container {
+    colormap: u32,
+    pixels: u32[..],
+};
+
+type Rgb = container {
+    red: u16,
+    green: u16,
+    blue:  u16,
+    reserved: u16,
+};
+
+type QueryColorsReply = container {
+    rgb_count: u16 +auto,
+    .pad: 22,
+    colors: Rgb[rgb_count],
+};
+
+type LookupColor = container {
+    colormap: u32,
+    name_len: u16 +auto,
+    reserved: u16,
+    name: utf8(name_len),
+};
+
+type LookupColorReply = container {
+    exact_red: u16,
+    exact_green: u16,
+    exact_blue: u16,
+    visual_red: u16,
+    visual_green: u16,
+    visual_blue: u16,
+    .pad: 12,
+};
+
+type CursorColor = container {
+    fore_red: u16,
+    fore_green: u16,
+    fore_blue: u16,
+    back_red: u16,
+    back_green: u16,
+    back_blue: u16,
+};
+
+type CreateCursor = container {
+    cursor: u32,
+    source: u32,
+    mask: u32, // 0 for None
+    color: CursorColor,
+    x: u16,
+    y: u16,
+};
+
+type CreateGlyphCursor = container {
+    cursor: u32,
+    source_font: u32,
+    mask_font: u32, // 0 for None,
+    source_char: u16,
+    mask_char: u16,
+    color: CursorColor,
+};
+
+type FreeCursor = container {
+    cursor: u32,
+};
+
+type RecolorCursor = container {
+    cursor: u32,
+    color: CursorColor,
+};
+
+type QueryBestSizeClass = enum u8 {
+    Cursor = 0,
+    Tile,
+    Stipple,
+};
+
+// reserved => QueryBestSizeClass
+type QueryBestSize = container {
+    drawable: u32,
+    width: u16,
+    height: u16,
+};
+
+type QueryBestSizeReply = container {
+    width: u16,
+    height: u16,
+    .pad: 20,
+};
+
+type QueryExtension = container {
+    name_len: u16 +auto,
+    .pad: 2,
+    name: utf8(name_len),
+};
+
+type QueryExtensionReply = container {
+    present: bool,
+    major_opcode: u8,
+    first_event: u8,
+    first_error: u8,
+    .pad: 20,
+};
+
+type ListExtensions = container {
+};
+
+type ListExtensionsReply(str_count: u8) = container {
+    .pad: 24,
+    names: Str[str_count],
+};
+
+// reserved => keycode_count: u8,
+type ChangeKeyboardMapping(keycode_count: u8) = container {
+    first_keycode: u8,
+    keysyms_per_keycode: u8,
+    reserved: u16,
+    keysyms: u32[keysyms_per_keycode * keycode_count],
+};
+
+type GetKeyboardMapping = container {
+    first_keycode: u8,
+    count: u8,
+    reserved: u16,
+};
+
+// reserved => keysyms_per_keycode: u8,
+type GetKeyboardMappingReply = container {
+    .pad: 24,
+    keysyms: u32[..],
+};
+
+type ChangeKeyboardControlBitmask = bitfield u32 {
+    KeyClickPercent = 0x0001,
+    BellPercent,
+    BellPitch,
+    BellDuration,
+    Led,
+    LedMode,
+    Key,
+    AutoRepeatMode,
+};
+
+type OffOnDefault = enum u8 {
+    Off = 0,
+    On,
+    Default,
+};
+
+type LedMode = enum u32 {
+    Off = 0,
+    On = 1,
+};
+
+type ChangeKeyboardControl = container {
+    bitmask: ChangeKeyboardControlBitmask,
+    key_click_percent: i8 { bitmask.KeyClickPercent },
+    bell_percent: i8 { bitmask.BellPercent },
+    bell_pitch: i16 { bitmask.BellPitch },
+    bell_duration: i16 { bitmask.BellDuration },
+    led: u32 { bitmask.Led },
+    led_mode: LedMode { bitmask.LedMode },
+    key: u8 { bitmask.Key },
+    auto_repeat_mode: OffOnDefault { bitmask.AutoRepeatMode },
+};
+
+type GetKeyboardControl = container {
+};
+
+// reserved => global_auto_repeat: bool,
+type GetKeyboardControlReply = container {
+    led_mask: u32,
+    key_click_percent: u8,
+    bell_percent: u8,
+    bell_pitch: u16,
+    bell_duration: u16,
+    reserved: u16,
+    auto_repeats: u8[32],
+};
+
+// reserved => percent: i8,
+type Bell = container {
+};
+
+type ChangePointerControl = container {
+    acceleration_numerator: i16,
+    acceleration_denominator: i16,
+    threshold: i16,
+    do_acceleration: bool,
+    do_threshold: bool,
+};
+
+type GetPointerControl = container {
+};
+
+type GetPointerControlReply = container {
+    acceleration_numerator: u16,
+    acceleration_denominator: u16,
+    threshold: u16,
+    .pad: 18,
+};
+
+type SetScreenSaver = container {
+    timeout: i16,
+    interval: i16,
+    prefer_blanking: OffOnDefault,
+    allow_exposures: OffOnDefault,
+    reserved: u16,
+};
+
+type GetScreenSaver = container {
+};
+
+type GetScreenSaverReply = container {
+    timeout: i16,
+    interval: i16,
+    prefer_blanking: bool,
+    allow_exposures: bool,
+    .pad: 18,
+};
+
+// reserved => InsertDelete
+type ChangeHosts = container {
+    host: Host,
+};
+
+type ListHosts = container {
+};
+
+// reserved => enabled: bool,
+type ListHostsReply = container {
+    host_count: u16 +auto,
+    .pad: 22,
+    hosts: Host[host_count],
+};
+
+// reserved => bool
+type SetAccessControl = container {
+};
+
+type CloseDownMode = enum u8 {
+    Destroy = 0,
+    RetainPermanent,
+    RetainTemporary,
+};
+
+// reserved => CloseDownMode,
+type SetCloseDownMode = container {
+};
+
+type KillClient = container {
+    resource: u32, // 0 for AllTemporary
+};
+
+type RotateProperties = container {
+    window: u32,
+    property_count: u16,
+    delta: i16,
+    properties: u32[property_count],
+};
+
+// reserved: active: bool,
+type ForceScreenSaver = container {
+};
+
+type SetMappingStatus = enum u8 {
+    Success = 0,
+    Busy = 1,
+    Failed = 2,
+};
+
+// reserved: map_len: u8,
+type SetPointerMapping(map_len: u8) = container {
+    map: u8[map_len],
+};
+
+// reserved => status: SetMappingStatus,
+type SetPointerMappingReply = container {
+    .pad: 24,
+};
+
+type GetPointerMapping = container {
+};
+
+// reserved: map_len: u8,
+type GetPointerMappingReply(map_len: u8) = container {
+    .pad: 24,
+    map: u8[map_len],
+};
+
+// reserved => keycodes_per_modifier: u8
+type SetModifierMapping(keycodes_per_modifier: u8) = container {
+    keycodes: u8[8 * keycodes_per_modifier :> u64],
+};
+
+// reserved => SetMappingStatus,
+type SetModifierMappingReply = container {
+    .pad: 24,
+};
+
+// reserved => keycodes_per_modifier: u8
+type GetModifierMapping(keycodes_per_modifier: u8) = container {
+    .pad: 24,
+    keycodes: u8[8 * keycodes_per_modifier :> u64],
+};
+
+// reserved => SetMappingStatus,
+type GetModifierMappingReply(keycodes_per_modifier: u8) = container {
+    .pad: 24,
+    keycodes: u8[8 * keycodes_per_modifier :> u64],
+};
+
+type NoOperation = container {
+};
