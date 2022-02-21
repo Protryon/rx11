@@ -18,37 +18,36 @@ pub struct ColorItem {
 
 pub use crate::coding::{ Rgb, LookupColorReply };
 
-impl X11Connection {
-
-    pub async fn alloc_color(&self, colormap: Colormap, red: u16, green: u16, blue: u16) -> Result<Pixel> {
-        let seq = send_request!(self, AllocColor {
-            colormap: colormap.handle,
+impl<'a> Colormap<'a> {
+    pub async fn alloc_color(&self, red: u16, green: u16, blue: u16) -> Result<Pixel> {
+        let seq = send_request!(self.connection, AllocColor {
+            colormap: self.handle,
             red: red,
             green: green,
             blue: blue,
         });
-        let reply = receive_reply!(self, seq, AllocColorReply);
+        let reply = receive_reply!(self.connection, seq, AllocColorReply);
 
         Ok(Pixel(reply.pixel))
     }
 
-    pub async fn alloc_named_color(&self, colormap: Colormap, name: &str) -> Result<Pixel> {
-        let seq = send_request!(self, AllocNamedColor {
-            colormap: colormap.handle,
+    pub async fn alloc_named_color(&self, name: &str) -> Result<Pixel> {
+        let seq = send_request!(self.connection, AllocNamedColor {
+            colormap: self.handle,
             name: name.to_string(),
         });
-        let reply = receive_reply!(self, seq, AllocNamedColorReply);
+        let reply = receive_reply!(self.connection, seq, AllocNamedColorReply);
 
         Ok(Pixel(reply.pixel))
     }
     
-    pub async fn alloc_color_cells(&self, colormap: Colormap, contiguous: bool, colors: u16, planes: u16) -> Result<(Vec<Pixel>, Vec<Pixel>)> {
-        let seq = send_request!(self, contiguous as u8, AllocColorCells {
-            colormap: colormap.handle,
+    pub async fn alloc_color_cells(&self, contiguous: bool, colors: u16, planes: u16) -> Result<(Vec<Pixel>, Vec<Pixel>)> {
+        let seq = send_request!(self.connection, contiguous as u8, AllocColorCells {
+            colormap: self.handle,
             colors: colors,
             planes: planes,
         });
-        let reply = receive_reply!(self, seq, AllocColorCellsReply);
+        let reply = receive_reply!(self.connection, seq, AllocColorCellsReply);
 
         Ok((
             reply.pixels.into_iter().map(Pixel).collect(),
@@ -56,15 +55,15 @@ impl X11Connection {
         ))
     }
 
-    pub async fn alloc_color_planes(&self, colormap: Colormap, contiguous: bool, colors: u16, reds: u16, greens: u16, blues: u16) -> Result<ColorPlanes> {
-        let seq = send_request!(self, contiguous as u8, AllocColorPlanes {
-            colormap: colormap.handle,
+    pub async fn alloc_color_planes(&self, contiguous: bool, colors: u16, reds: u16, greens: u16, blues: u16) -> Result<ColorPlanes> {
+        let seq = send_request!(self.connection, contiguous as u8, AllocColorPlanes {
+            colormap: self.handle,
             colors: colors,
             reds: reds,
             greens: greens,
             blues: blues,
         });
-        let reply = receive_reply!(self, seq, AllocColorPlanesReply);
+        let reply = receive_reply!(self.connection, seq, AllocColorPlanesReply);
 
         Ok(ColorPlanes {
             pixels: reply.pixels.into_iter().map(Pixel).collect(),
@@ -74,9 +73,9 @@ impl X11Connection {
         })
     }
 
-    pub async fn free_colors(&self, colormap: Colormap, plane_mask: u32, pixels: Vec<Pixel>) -> Result<()> {
-        send_request!(self, FreeColors {
-            colormap: colormap.handle,
+    pub async fn free_colors(&self, plane_mask: u32, pixels: Vec<Pixel>) -> Result<()> {
+        send_request!(self.connection, FreeColors {
+            colormap: self.handle,
             plane_mask: plane_mask,
             pixels: pixels.into_iter().map(|x| x.0).collect(),
         });
@@ -84,9 +83,9 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn store_colors(&self, colormap: Colormap, items: &[ColorItem]) -> Result<()> {
-        send_request!(self, StoreColors {
-            colormap: colormap.handle,
+    pub async fn store_colors(&self, items: &[ColorItem]) -> Result<()> {
+        send_request!(self.connection, StoreColors {
+            colormap: self.handle,
             items: items.iter().map(|item| crate::coding::ColorItem {
                 pixel: item.pixel.0,
                 red: item.red.unwrap_or_default(),
@@ -112,7 +111,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn store_named_color(&self, colormap: Colormap, pixel: Pixel, name: &str, do_red: bool, do_green: bool, do_blue: bool) -> Result<()> {
+    pub async fn store_named_color(&self, pixel: Pixel, name: &str, do_red: bool, do_green: bool, do_blue: bool) -> Result<()> {
         let flags = {
             let mut out = 0u8;
             if do_red {
@@ -126,8 +125,8 @@ impl X11Connection {
             }
             out
         };
-        send_request!(self, flags, StoreNamedColor {
-            colormap: colormap.handle,
+        send_request!(self.connection, flags, StoreNamedColor {
+            colormap: self.handle,
             pixel: pixel.0,
             name: name.to_string(),
         });
@@ -135,24 +134,24 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn query_colors(&self, colormap: Colormap, pixels: &[Pixel]) -> Result<Vec<Rgb>> {
-        let seq = send_request!(self, QueryColors {
-            colormap: colormap.handle,
+    pub async fn query_colors(&self, pixels: &[Pixel]) -> Result<Vec<Rgb>> {
+        let seq = send_request!(self.connection, QueryColors {
+            colormap: self.handle,
             pixels: pixels.iter().map(|x| x.0).collect(),
         });
 
-        let reply = receive_reply!(self, seq, QueryColorsReply);
+        let reply = receive_reply!(self.connection, seq, QueryColorsReply);
 
         Ok(reply.colors)
     }
 
-    pub async fn lookup_color(&self, colormap: Colormap, name: &str) -> Result<LookupColorReply> {
-        let seq = send_request!(self, LookupColor {
-            colormap: colormap.handle,
+    pub async fn lookup_color(&self, name: &str) -> Result<LookupColorReply> {
+        let seq = send_request!(self.connection, LookupColor {
+            colormap: self.handle,
             name: name.to_string(),
         });
 
-        let reply = receive_reply!(self, seq, LookupColorReply);
+        let reply = receive_reply!(self.connection, seq, LookupColorReply);
 
         Ok(reply)
     }

@@ -784,7 +784,7 @@ type Response = container {
 type ResponseBody(code: u8) = container +tagged_enum {
     ErrorReply: ErrorReply { code == 0 },
     Reply: Reply { code == 1 },
-    Event: Event(code) { code >= 2 },
+    Event: Event(code & 0x7F) { code >= 2 },
 };
 
 // requests

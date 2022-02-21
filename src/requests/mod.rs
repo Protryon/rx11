@@ -1,6 +1,7 @@
 use anyhow::Result;
 use crate::connection::X11Connection;
 use crate::coding::*;
+use crate::events::Event;
 use crate::{send_request, receive_reply};
 
 mod extensions;
@@ -73,10 +74,10 @@ mod control;
 pub use control::*;
 
 /// Any resource inside of X11, including extensions
-pub trait Resource: Sized {
+pub trait Resource<'a>: Sized {
     #[doc(hidden)]
     fn x11_handle(&self) -> u32;
 
     #[doc(hidden)]
-    fn from_x11_handle(handle: u32) -> Self;
+    fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self;
 }

@@ -14,17 +14,21 @@ pub use crate::coding::{
     ConfigureWindowBitmask,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub struct Window {
+#[derive(Clone, Copy)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
+pub struct Window<'a> {
     pub(crate) handle: u32,
+    #[derivative(Debug = "ignore")]
+    pub(crate) connection: &'a X11Connection,
 }
 
 #[derive(Default, Builder, Debug)]
 #[builder(default)]
-pub struct WindowParams {
+pub struct WindowParams<'a> {
     pub depth: u8,
     #[builder(setter(into, strip_option), default)]
-    pub parent: Option<Window>,
+    pub parent: Option<Window<'a>>,
     pub x: i16,
     pub y: i16,
     #[builder(default = "100")]
@@ -36,12 +40,12 @@ pub struct WindowParams {
     #[builder(default = "WindowClass::InputOutput")]
     pub window_class: WindowClass,
     pub visual: WindowVisual,
-    pub attributes: WindowAttributes,
+    pub attributes: WindowAttributes<'a>,
 }
 
 #[derive(Default, Builder, Debug)]
 #[builder(default)]
-pub struct WindowConfig {
+pub struct WindowConfig<'a> {
     #[builder(setter(into, strip_option), default)]
     pub x: Option<i16>,
     #[builder(setter(into, strip_option), default)]
@@ -53,43 +57,43 @@ pub struct WindowConfig {
     #[builder(setter(into, strip_option), default)]
     pub border_width: Option<u16>,
     #[builder(setter(into, strip_option), default)]
-    pub sibling: Option<Window>,
+    pub sibling: Option<Window<'a>>,
     #[builder(setter(into, strip_option), default)]
     pub stack_mode: Option<StackMode>,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum BackgroundPixmap {
+pub enum BackgroundPixmap<'a> {
     None,
     ParentRelative,
-    Some(Pixmap),
+    Some(Pixmap<'a>),
 }
 
-impl Default for BackgroundPixmap {
+impl<'a> Default for BackgroundPixmap<'a> {
     fn default() -> Self {
         BackgroundPixmap::None
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum BorderPixmap {
+pub enum BorderPixmap<'a> {
     CopyFromParent,
-    Some(Pixmap),
+    Some(Pixmap<'a>),
 }
 
-impl Default for BorderPixmap {
+impl<'a> Default for BorderPixmap<'a> {
     fn default() -> Self {
         BorderPixmap::CopyFromParent
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum WindowColormap {
+pub enum WindowColormap<'a> {
     CopyFromParent,
-    Some(Colormap),
+    Some(Colormap<'a>),
 }
 
-impl Default for WindowColormap {
+impl<'a> Default for WindowColormap<'a> {
     fn default() -> Self {
         WindowColormap::CopyFromParent
     }
@@ -109,13 +113,13 @@ impl Default for WindowVisual {
 
 #[derive(Builder, Default, Debug, Clone)]
 #[builder(default)]
-pub struct WindowAttributes {
+pub struct WindowAttributes<'a> {
     #[builder(default = "BackgroundPixmap::None")]
-    pub background_pixmap: BackgroundPixmap,
+    pub background_pixmap: BackgroundPixmap<'a>,
     #[builder(setter(into, strip_option), default)]
     pub background_pixel: Option<Pixel>,
     #[builder(default = "BorderPixmap::CopyFromParent")]
-    pub border_pixmap: BorderPixmap,
+    pub border_pixmap: BorderPixmap<'a>,
     #[builder(setter(into, strip_option), default)]
     pub border_pixel: Option<Pixel>,
     #[builder(default = "BitGravity::Forget")]
@@ -132,12 +136,12 @@ pub struct WindowAttributes {
     pub save_under: bool,
     pub event_mask: EventMask,
     pub do_not_propagate_mask: EventMask,
-    pub colormap: WindowColormap,
+    pub colormap: WindowColormap<'a>,
     #[builder(setter(into, strip_option), default)]
-    pub cursor: Option<Cursor>,
+    pub cursor: Option<Cursor<'a>>,
 }
 
-impl Into<crate::coding::WindowAttributes> for WindowAttributes {
+impl<'a> Into<crate::coding::WindowAttributes> for WindowAttributes<'a> {
     fn into(self) -> crate::coding::WindowAttributes {
         let mut attrs = crate::coding::WindowAttributes::default();
         match self.background_pixmap {
@@ -255,7 +259,7 @@ impl Into<crate::coding::WindowAttributes> for WindowAttributes {
 
 
 #[derive(Debug, Clone)]
-pub struct FetchedWindowAttributes {
+pub struct FetchedWindowAttributes<'a> {
     pub backing_store: BackingStore,
     pub visual: Visual,
     pub class: WindowClass,
@@ -267,31 +271,28 @@ pub struct FetchedWindowAttributes {
     pub map_is_installed: bool,
     pub map_state: MapState,
     pub override_redirect: bool,
-    pub colormap: Option<Colormap>,
+    pub colormap: Option<Colormap<'a>>,
     pub all_event_mask: EventMask,
     pub local_event_mask: EventMask,
     pub do_not_propagate_mask: EventMask,
 }
 
 #[derive(Debug, Clone)]
-pub struct QueryTreeResult {
-    pub root: Window,
-    pub parent: Option<Window>,
-    pub children: Vec<Window>,
+pub struct QueryTreeResult<'a> {
+    pub root: Window<'a>,
+    pub parent: Option<Window<'a>>,
+    pub children: Vec<Window<'a>>,
 }
 
 impl X11Connection {
-    pub fn screen(&self) -> &Screen {
-        &self.handshake().screens[0]
-    }
-
-    pub fn root_window(&self) -> Window {
+    pub fn root_window(&self) -> Window<'_> {
         Window {
             handle: self.screen().root_window,
+            connection: self,
         }
     }
 
-    pub async fn create_window(&self, params: WindowParams) -> Result<Window> {
+    pub async fn create_window(&self, params: WindowParams<'_>) -> Result<Window<'_>> {
         let window = self.new_resource_id();
         
         send_request!(self, params.depth, CreateWindow {
@@ -311,22 +312,26 @@ impl X11Connection {
         });
         Ok(Window {
             handle: window,
+            connection: self,
         })
     }
+}
+impl<'a> Window<'a> {
 
-    pub async fn change_window_attributes(&self, window: Window, params: WindowAttributes) -> Result<()> {
-        send_request!(self, ChangeWindowAttributes {
-            window: window.handle,
-            attributes: params.into(),
+    pub async fn change_attributes(&self, params: WindowAttributes<'_>) -> Result<()> {
+        let attributes = params.into();
+        send_request!(self.connection, ChangeWindowAttributes {
+            window: self.handle,
+            attributes: attributes,
         });
         Ok(())
     }
 
-    pub async fn get_window_attributes(&self, window: Window) -> Result<FetchedWindowAttributes> {
-        let seq = send_request!(self, GetWindowAttributes {
-            window: window.handle,
+    pub async fn get_attributes(&self) -> Result<FetchedWindowAttributes<'a>> {
+        let seq = send_request!(self.connection, GetWindowAttributes {
+            window: self.handle,
         });
-        let (reply, backing_store) = receive_reply!(self, seq, GetWindowAttributesReply, fetched);
+        let (reply, backing_store) = receive_reply!(self.connection, seq, GetWindowAttributesReply, fetched);
 
         Ok(FetchedWindowAttributes {
             backing_store: BackingStore::decode_sync(&mut &[backing_store][..])?,
@@ -346,6 +351,7 @@ impl X11Connection {
                 0 => None,
                 x => Some(Colormap {
                     handle: x,
+                    connection: self.connection,
                 }),
             },
             all_event_mask: reply.all_event_mask,
@@ -354,37 +360,37 @@ impl X11Connection {
         })
     }
 
-    pub async fn destroy_window(&self, window: Window) -> Result<()> {
-        send_request!(self, DestroyWindow {
-            window: window.handle,
+    pub async fn destroy(&self) -> Result<()> {
+        send_request!(self.connection, DestroyWindow {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn destroy_subwindows(&self, window: Window) -> Result<()> {
-        send_request!(self, DestroySubwindows {
-            window: window.handle,
+    pub async fn destroy_subwindows(&self) -> Result<()> {
+        send_request!(self.connection, DestroySubwindows {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn save_set_add_window(&self, window: Window) -> Result<()> {
-        send_request!(self, InsertDelete::Insert as u8, ChangeSaveSet {
-            window: window.handle,
+    pub async fn save_set_add(&self) -> Result<()> {
+        send_request!(self.connection, InsertDelete::Insert as u8, ChangeSaveSet {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn save_set_delete_window(&self, window: Window) -> Result<()> {
-        send_request!(self, InsertDelete::Delete as u8, ChangeSaveSet {
-            window: window.handle,
+    pub async fn save_set_delete(&self) -> Result<()> {
+        send_request!(self.connection, InsertDelete::Delete as u8, ChangeSaveSet {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn reparent_window(&self, window: Window, new_parent: Window, x: i16, y: i16) -> Result<()> {
-        send_request!(self, ReparentWindow {
-            window: window.handle,
+    pub async fn reparent(&self, new_parent: Window<'_>, x: i16, y: i16) -> Result<()> {
+        send_request!(self.connection, ReparentWindow {
+            window: self.handle,
             parent: new_parent.handle,
             x: x,
             y: y,
@@ -392,35 +398,35 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn map_window(&self, window: Window) -> Result<()> {
-        send_request!(self, MapWindow {
-            window: window.handle,
+    pub async fn map(&self) -> Result<()> {
+        send_request!(self.connection, MapWindow {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn map_subwindows(&self, window: Window) -> Result<()> {
-        send_request!(self, MapSubwindows {
-            window: window.handle,
+    pub async fn map_subwindows(&self) -> Result<()> {
+        send_request!(self.connection, MapSubwindows {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn unmap_window(&self, window: Window) -> Result<()> {
-        send_request!(self, UnmapWindow {
-            window: window.handle,
+    pub async fn unmap(&self) -> Result<()> {
+        send_request!(self.connection, UnmapWindow {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn unmap_subwindows(&self, window: Window) -> Result<()> {
-        send_request!(self, UnmapSubwindows {
-            window: window.handle,
+    pub async fn unmap_subwindows(&self) -> Result<()> {
+        send_request!(self.connection, UnmapSubwindows {
+            window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn configure_window(&self, window: Window, config: WindowConfig) -> Result<()> {
+    pub async fn configure(&self, config: WindowConfig<'_>) -> Result<()> {
         let mut bitmask = ConfigureWindowBitmask::ZERO;
         if config.x.is_some() {
             bitmask.set_x();
@@ -443,8 +449,8 @@ impl X11Connection {
         if config.stack_mode.is_some() {
             bitmask.set_stack_mode();
         }
-        send_request!(self, ConfigureWindow {
-            window: window.handle,
+        send_request!(self.connection, ConfigureWindow {
+            window: self.handle,
             bitmask: bitmask,
             x: config.x,
             y: config.y,
@@ -458,37 +464,43 @@ impl X11Connection {
         Ok(())
     }
     
-    pub async fn circulate_window(&self, window: Window, direction: CirculateWindowDirection) -> Result<()> {
-        send_request!(self, direction as u8, CirculateWindow {
-            window: window.handle,
+    pub async fn circulate(&self, direction: CirculateWindowDirection) -> Result<()> {
+        send_request!(self.connection, direction as u8, CirculateWindow {
+            window: self.handle,
         });
 
         Ok(())
     }
 
-    pub async fn query_tree(&self, window: Window) -> Result<QueryTreeResult> {
-        let seq = send_request!(self, QueryTree {
-            window: window.handle,
+    pub async fn query_tree(&self) -> Result<QueryTreeResult<'_>> {
+        let seq = send_request!(self.connection, QueryTree {
+            window: self.handle,
         });
-        let reply = receive_reply!(self, seq, QueryTreeReply);
+        let reply = receive_reply!(self.connection, seq, QueryTreeReply);
 
         Ok(QueryTreeResult {
-            root: Window { handle: reply.root_window },
+            root: Window {
+                handle: reply.root_window,
+                connection: self.connection,
+            },
             parent: match reply.parent_window {
                 0 => None,
-                handle => Some(Window { handle }),
+                handle => Some(Window {
+                    handle,
+                    connection: self.connection,
+                }),
             },
-            children: reply.children_windows.into_iter().map(|handle| Window { handle }).collect(),
+            children: reply.children_windows.into_iter().map(|handle| Window { handle, connection: self.connection }).collect(),
         })
     }
 }
 
-impl Resource for Window {
+impl<'a> Resource<'a> for Window<'a> {
     fn x11_handle(&self) -> u32 {
         self.handle
     }
 
-    fn from_x11_handle(handle: u32) -> Self {
-        Self { handle }
+    fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self {
+        Self { handle, connection }
     }
 }

@@ -9,33 +9,33 @@ pub use crate::coding::{
 };
 
 #[derive(Clone, Debug)]
-pub struct GrabPointerParams {
-    pub grab_window: Window,
+pub struct GrabPointerParams<'a> {
+    pub grab_window: Window<'a>,
     pub owner_events: bool,
     pub event_mask: PointerEventMask,
     pub pointer_mode: PointerMode,
     pub keyboard_mode: PointerMode,
-    pub confine_to: Option<Window>,
-    pub cursor: Option<Cursor>,
+    pub confine_to: Option<Window<'a>>,
+    pub cursor: Option<Cursor<'a>>,
     pub time: Timestamp,
 }
 
 #[derive(Clone, Debug)]
-pub struct GrabButtonParams {
-    pub grab_window: Window,
+pub struct GrabButtonParams<'a> {
+    pub grab_window: Window<'a>,
     pub owner_events: bool,
     pub event_mask: PointerEventMask,
     pub pointer_mode: PointerMode,
     pub keyboard_mode: PointerMode,
-    pub confine_to: Option<Window>,
-    pub cursor: Option<Cursor>,
+    pub confine_to: Option<Window<'a>>,
+    pub cursor: Option<Cursor<'a>>,
     pub button: Option<u8>,
     pub keymask: Keymask,
 }
 
 #[derive(Clone, Debug)]
-pub struct GrabKeyboardParams {
-    pub grab_window: Window,
+pub struct GrabKeyboardParams<'a> {
+    pub grab_window: Window<'a>,
     pub owner_events: bool,
     pub time: Timestamp,
     pub pointer_mode: PointerMode,
@@ -43,8 +43,8 @@ pub struct GrabKeyboardParams {
 }
 
 #[derive(Clone, Debug)]
-pub struct GrabKeyParams {
-    pub grab_window: Window,
+pub struct GrabKeyParams<'a> {
+    pub grab_window: Window<'a>,
     pub owner_events: bool,
     pub keymask: Keymask,
     pub keycode: Option<u8>,
@@ -53,7 +53,7 @@ pub struct GrabKeyParams {
 }
 
 impl X11Connection {
-    pub async fn grab_pointer(&self, params: GrabPointerParams) -> Result<GrabStatus> {
+    pub async fn grab_pointer(&self, params: GrabPointerParams<'_>) -> Result<GrabStatus> {
         let seq = send_request!(self, params.owner_events as u8, GrabPointer {
             grab_window: params.grab_window.handle,
             event_mask: params.event_mask,
@@ -74,7 +74,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn grab_button(&self, params: GrabButtonParams) -> Result<()> {
+    pub async fn grab_button(&self, params: GrabButtonParams<'_>) -> Result<()> {
         send_request!(self, params.owner_events as u8, GrabButton {
             grab_window: params.grab_window.handle,
             event_mask: params.event_mask,
@@ -88,7 +88,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn ungrab_button(&self, window: Window, keymask: Keymask, button: Option<u8>) -> Result<()> {
+    pub async fn ungrab_button(&self, window: Window<'_>, keymask: Keymask, button: Option<u8>) -> Result<()> {
         send_request!(self, button.unwrap_or(0), UngrabButton {
             grab_window: window.handle,
             keymask: keymask,
@@ -96,7 +96,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn change_active_pointer_grab(&self, cursor: Option<Cursor>, time: Timestamp, event_mask: PointerEventMask) -> Result<()> {
+    pub async fn change_active_pointer_grab(&self, cursor: Option<Cursor<'_>>, time: Timestamp, event_mask: PointerEventMask) -> Result<()> {
         send_request!(self, ChangeActivePointerGrab {
             cursor: cursor.map(|x| x.handle).unwrap_or(0),
             time: time.0,
@@ -105,7 +105,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn grab_keyboard(&self, params: GrabKeyboardParams) -> Result<GrabStatus> {
+    pub async fn grab_keyboard(&self, params: GrabKeyboardParams<'_>) -> Result<GrabStatus> {
         let seq = send_request!(self, params.owner_events as u8, GrabKeyboard {
             grab_window: params.grab_window.handle,
             time: params.time.0,
@@ -123,7 +123,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn grab_key(&self, params: GrabKeyParams) -> Result<()> {
+    pub async fn grab_key(&self, params: GrabKeyParams<'_>) -> Result<()> {
         send_request!(self, params.owner_events as u8, GrabKey {
             grab_window: params.grab_window.handle,
             keymask: params.keymask,
@@ -134,7 +134,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn ungrab_key(&self, grab_window: Window, keymask: Keymask, keycode: Option<u8>) -> Result<()> {
+    pub async fn ungrab_key(&self, grab_window: Window<'_>, keymask: Keymask, keycode: Option<u8>) -> Result<()> {
         send_request!(self, keycode.unwrap_or(0), UngrabKey {
             grab_window: grab_window.handle,
             keymask: keymask,

@@ -26,12 +26,12 @@ pub struct Depth {
     pub(crate) _internal: (),
 }
 
-impl Resource for Visual {
+impl<'a> Resource<'a> for Visual {
     fn x11_handle(&self) -> u32 {
         self.handle
     }
 
-    fn from_x11_handle(handle: u32) -> Self {
+    fn from_x11_handle(_connection: &'a X11Connection, handle: u32) -> Self {
         Self { handle }
     }
 }

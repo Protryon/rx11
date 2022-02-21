@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::{atomic::{AtomicU16, Ordering, AtomicU32}, Arc}, fmt};
 
-use tokio::{io::{AsyncRead, AsyncWrite, BufReader, BufWriter, AsyncWriteExt}, sync::{mpsc, oneshot, Mutex}};
-use crate::{coding::{x11::{Request, Response, ClientHandshake, ServerHandshake, ServerHandshakeBody, ServerHandshakeSuccess}, RequestBody, ResponseBody, Event, ErrorReply}, requests::{Depth, VisualType, Visual}};
+use tokio::{io::{AsyncRead, AsyncWrite, BufReader, BufWriter, AsyncWriteExt}, sync::{mpsc, oneshot, Mutex, broadcast}};
+use crate::{coding::{x11::{Request, Response, ClientHandshake, ServerHandshake, ServerHandshakeBody, ServerHandshakeSuccess}, RequestBody, ResponseBody, ErrorReply, Screen}, requests::{Depth, VisualType, Visual}, events::Event};
 use dashmap::{DashMap, mapref::entry::Entry};
 
 use super::*;
@@ -24,20 +24,20 @@ struct X11OutputContext {
 
 pub struct X11Connection {
     writer: mpsc::Sender<RequestLen>,
-    // events: broadcast::Sender<Event>,
     output: Arc<X11OutputContext>,
     seq: AtomicU16,
     next_resource_id: AtomicU32,
     handshake: ServerHandshakeSuccess,
     depths: BTreeMap<u8, Depth>,
+    events_sender: broadcast::Sender<(u8, crate::coding::Event)>,
+    pub(crate) known_atoms: DashMap<&'static str, u32>,
+    pub(crate) known_atoms_inverse: DashMap<u32, &'static str>,
 }
 
 pub type X11ConnectionOwned = Arc<X11Connection>;
 
 const PROTOCOL_MAJOR_VERSION: u16 = 11;
 const PROTOCOL_MINOR_VERSION: u16 = 0;
-
-pub type EventHandler = Box<dyn FnMut(Event) -> Result<()> + Send + Sync + 'static>;
 
 impl fmt::Display for ErrorReply {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -91,12 +91,13 @@ impl X11Connection {
         Ok(())
     }
 
-    async fn reader_thread(mut reader: BufReader<impl AsyncRead + Unpin + Send + Sync>, output: Arc<X11OutputContext>, mut event_handler: EventHandler) -> Result<()> {
-        while let Ok(response) = Response::decode_async(&mut reader).await {
+    async fn reader_thread(mut reader: BufReader<impl AsyncRead + Unpin + Send + Sync>, output: Arc<X11OutputContext>, events: broadcast::Sender<(u8, crate::coding::Event)>) -> Result<()> {
+        loop {
+            let response = Response::decode_async(&mut reader).await?;
             match response.body {
                 ResponseBody::Event(event) => {
-                    if let Err(e) = event_handler(event) {
-                        error!("failed to handle event: {:?}", e);
+                    if let Err(_) = events.send((response.code, event)) {
+                        error!("failed to send event");
                     }
                 },
                 ResponseBody::ErrorReply(error) => {
@@ -185,24 +186,23 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn connect(host: &str, display: u16, event_handler: EventHandler) -> Result<Self> {
+    pub async fn connect(host: &str, display: u16) -> Result<Arc<Self>> {
         #[cfg(not(target_os = "windows"))]
         if host == "" || host == "unix" {
             if let Ok(c) = UnixConnection::connect(display).await {
                 let (writer, reader) = c.into_split();
-                return Self::open(reader, writer, event_handler).await;
+                return Self::open(reader, writer).await;
             }
         }
         let connection = TcpConnection::connect(host, display).await?;
         let (writer, reader) = connection.into_split();
-        Self::open(reader, writer, event_handler).await
+        Self::open(reader, writer).await
     }
 
     pub async fn open(
         writer: impl AsyncWrite + Unpin + Send + Sync + 'static,
         reader: impl AsyncRead + Unpin + Send + Sync + 'static,
-        event_handler: EventHandler,
-    ) -> Result<Self> {
+    ) -> Result<Arc<Self>> {
         let mut writer = BufWriter::new(writer);
         let mut reader = BufReader::new(reader);
         let handshake = ClientHandshake {
@@ -216,7 +216,6 @@ impl X11Connection {
         info!("sending handshake");
         let mut output = vec![];
         handshake.encode_sync(&mut output)?;
-        println!("handshake out = {:?}", output);
         handshake.encode_async(&mut writer).await?;
         writer.flush().await?;
 
@@ -267,21 +266,30 @@ impl X11Connection {
                 error!("x11 writing failed: {:?}", e);
             }
         });
+
+        let (events_sender, _) = broadcast::channel(64);
+
         let output2 = output.clone();
+        let events_sender2 = events_sender.clone();
         tokio::spawn(async move {
-            if let Err(e) = Self::reader_thread(reader, output2, event_handler).await {
+            if let Err(e) = Self::reader_thread(reader, output2, events_sender2).await {
                 error!("x11 writing failed: {:?}", e);
             }
         });
 
-        Ok(Self {
+        let self_ = Self {
             output,
             writer: in_sender,
             handshake,
             seq: AtomicU16::new(1),
             next_resource_id: AtomicU32::new(0),
+            known_atoms: DashMap::new(),
+            known_atoms_inverse: DashMap::new(),
+            events_sender,
             depths
-        })
+        };
+        self_.register_const_atoms();
+        Ok(Arc::new(self_))
     }
 
     pub fn handshake(&self) -> &ServerHandshakeSuccess {
@@ -398,8 +406,19 @@ impl X11Connection {
         }
     }
 
+    pub fn events(&self) -> EventReceiver<'_> {
+        EventReceiver {
+            connection: self,
+            receiver: self.events_sender.subscribe(),
+        }
+    }
+
     pub fn depths(&self) -> &BTreeMap<u8, Depth> {
         &self.depths
+    }
+
+    pub fn screen(&self) -> &Screen {
+        &self.handshake().screens[0]
     }
 
     pub async fn check_errors(&self) -> Vec<ErrorReply> {
@@ -411,6 +430,19 @@ impl X11Connection {
         for error in self.check_errors().await {
             error!("{}", error);
         }
+    }
+}
+
+pub struct EventReceiver<'a> {
+    connection: &'a X11Connection,
+    receiver: broadcast::Receiver<(u8, crate::coding::Event)>,
+}
+
+impl<'a> EventReceiver<'a> {
+    pub async fn recv(&mut self) -> Option<Event<'_>> {
+        self.receiver.recv().await
+            .ok()
+            .map(|(code, event)| Event::from_protocol(self.connection, code, event))
     }
 }
 

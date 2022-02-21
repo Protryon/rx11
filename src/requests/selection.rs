@@ -1,7 +1,7 @@
 use super::*;
 
 impl X11Connection {
-    pub async fn set_selection_owner(&self, window: Window, selection: Atom, time: Timestamp) -> Result<()> {
+    pub async fn set_selection_owner(&self, window: Window<'_>, selection: Atom, time: Timestamp) -> Result<()> {
         send_request!(self, SetSelectionOwner {
             window: window.handle,
             selection: selection.handle,
@@ -10,16 +10,16 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn get_selection_owner(&self, selection: Atom) -> Result<Window> {
+    pub async fn get_selection_owner(&self, selection: Atom) -> Result<Window<'_>> {
         let seq = send_request!(self, GetSelectionOwner {
             selection: selection.handle,
         });
         let reply = receive_reply!(self, seq, GetSelectionOwnerReply);
 
-        Ok(Window { handle: reply.window })
+        Ok(Window { handle: reply.window, connection: self })
     }
     
-    pub async fn convert_selection(&self, window: Window, selection: Atom, target: Atom, property: Option<Atom>, time: Timestamp) -> Result<()> {
+    pub async fn convert_selection(&self, window: Window<'_>, selection: Atom, target: Atom, property: Option<Atom>, time: Timestamp) -> Result<()> {
         send_request!(self, ConvertSelection {
             window: window.handle,
             selection: selection.handle,

@@ -2,76 +2,86 @@ use super::*;
 
 pub use crate::coding::CreateColormapAlloc;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Colormap {
+#[derive(Clone, Copy)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
+pub struct Colormap<'a> {
     pub(crate) handle: u32,
+    #[derivative(Debug = "ignore")]
+    pub(crate) connection: &'a X11Connection,
 }
 
-impl X11Connection {
-
-    pub async fn create_colormap(&self, window: Window, visual: Visual, alloc: CreateColormapAlloc) -> Result<Colormap> {
-        let colormap = self.new_resource_id();
+impl<'a> Window<'a> {
+    pub async fn create_colormap(&self, visual: Visual, alloc: CreateColormapAlloc) -> Result<Colormap<'_>> {
+        let colormap = self.connection.new_resource_id();
         
-        send_request!(self, alloc as u8, CreateColormap {
-            window: window.handle,
+        send_request!(self.connection, alloc as u8, CreateColormap {
+            window: self.handle,
             visual: visual.handle,
             colormap: colormap,
         });
         Ok(Colormap {
             handle: colormap,
+            connection: self.connection,
         })
     }
 
-    pub async fn free_colormap(&self, colormap: Colormap) -> Result<()> {
-        send_request!(self, FreeColormap {
-            colormap: colormap.handle,
-        });
-        Ok(())
-    }
 
-    pub async fn copy_colormap_and_free(&self, from: Colormap) -> Result<Colormap> {
-        let colormap = self.new_resource_id();
-        send_request!(self, CopyColormapAndFree {
-            src_colormap: from.handle,
-            dst_colormap: colormap,
+    pub async fn list_installed_colormaps(&self) -> Result<Vec<Colormap<'_>>> {
+        let seq = send_request!(self.connection, ListInstalledColormaps {
+            window: self.handle,
         });
-        Ok(Colormap {
-            handle: colormap,
-        })
-    }
-
-    pub async fn install_colormap(&self, colormap: Colormap) -> Result<()> {
-        send_request!(self, InstallColormap {
-            colormap: colormap.handle,
-        });
-        Ok(())
-    }
-
-    pub async fn uninstall_colormap(&self, colormap: Colormap) -> Result<()> {
-        send_request!(self, UninstallColormap {
-            colormap: colormap.handle,
-        });
-        Ok(())
-    }
-
-    pub async fn list_installed_colormaps(&self, window: Window) -> Result<Vec<Colormap>> {
-        let seq = send_request!(self, ListInstalledColormaps {
-            window: window.handle,
-        });
-        let reply = receive_reply!(self, seq, ListInstalledColormapsReply);
+        let reply = receive_reply!(self.connection, seq, ListInstalledColormapsReply);
 
         Ok(reply.colormaps.into_iter().map(|handle| Colormap {
-            handle
+            handle,
+            connection: self.connection,
         }).collect())
     }
 }
 
-impl Resource for Colormap {
+impl<'a> Colormap<'a> {
+
+    pub async fn free(&self) -> Result<()> {
+        send_request!(self.connection, FreeColormap {
+            colormap: self.handle,
+        });
+        Ok(())
+    }
+
+    pub async fn copy_and_free(&self) -> Result<Colormap<'_>> {
+        let colormap = self.connection.new_resource_id();
+        send_request!(self.connection, CopyColormapAndFree {
+            src_colormap: self.handle,
+            dst_colormap: colormap,
+        });
+        Ok(Colormap {
+            handle: colormap,
+            connection: self.connection,
+        })
+    }
+
+    pub async fn install(&self) -> Result<()> {
+        send_request!(self.connection, InstallColormap {
+            colormap: self.handle,
+        });
+        Ok(())
+    }
+
+    pub async fn uninstall(&self) -> Result<()> {
+        send_request!(self.connection, UninstallColormap {
+            colormap: self.handle,
+        });
+        Ok(())
+    }
+}
+
+impl<'a> Resource<'a> for Colormap<'a> {
     fn x11_handle(&self) -> u32 {
         self.handle
     }
 
-    fn from_x11_handle(handle: u32) -> Self {
-        Self { handle }
+    fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self {
+        Self { connection, handle }
     }
 }

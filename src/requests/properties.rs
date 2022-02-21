@@ -33,24 +33,24 @@ impl From<Vec<u32>> for PropertyValue {
     }
 }
 
-impl X11Connection {
-    pub async fn set_property_string<S: AsRef<str>>(&self, window: Window, property: Atom, value: S) -> Result<()> {
-        self.change_property(window, property, Atom::STRING, ChangePropertyMode::Replace, value.as_ref().as_bytes().to_vec()).await
+impl<'a> Window<'a> {
+    pub async fn set_property_string<S: AsRef<str>>(&self, property: Atom, value: S) -> Result<()> {
+        self.change_property(property, Atom::STRING, ChangePropertyMode::Replace, value.as_ref().as_bytes().to_vec()).await
     }
 
-    pub async fn append_property<P: Into<PropertyValue>>(&self, window: Window, property: Atom, type_: Atom, data: P) -> Result<()> {
-        self.change_property(window, property, type_, ChangePropertyMode::Append, data).await
+    pub async fn append_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
+        self.change_property(property, type_, ChangePropertyMode::Append, data).await
     }
 
-    pub async fn prepend_property<P: Into<PropertyValue>>(&self, window: Window, property: Atom, type_: Atom, data: P) -> Result<()> {
-        self.change_property(window, property, type_, ChangePropertyMode::Prepend, data).await
+    pub async fn prepend_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
+        self.change_property(property, type_, ChangePropertyMode::Prepend, data).await
     }
 
-    pub async fn replace_property<P: Into<PropertyValue>>(&self, window: Window, property: Atom, type_: Atom, data: P) -> Result<()> {
-        self.change_property(window, property, type_, ChangePropertyMode::Replace, data).await
+    pub async fn replace_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
+        self.change_property(property, type_, ChangePropertyMode::Replace, data).await
     }
 
-    pub async fn change_property<P: Into<PropertyValue>>(&self, window: Window, property: Atom, type_: Atom, mode: ChangePropertyMode, data: P) -> Result<()> {
+    pub async fn change_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, mode: ChangePropertyMode, data: P) -> Result<()> {
         let data = data.into();
         let (format, length) = match &data {
             PropertyValue::None => bail!("cannot pass none value into change_property"),
@@ -65,8 +65,8 @@ impl X11Connection {
             PropertyValue::U32(data) => data.into_iter().flat_map(|x| x.to_be_bytes()).collect(),
         };
 
-        send_request!(self, mode as u8, ChangeProperty {
-            window: window.handle,
+        send_request!(self.connection, mode as u8, ChangeProperty {
+            window: self.handle,
             property: property.handle,
             type_: type_.handle,
             format: format,
@@ -77,27 +77,27 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn delete_property(&self, window: Window, property: Atom) -> Result<()> {
-        send_request!(self, DeleteProperty {
-            window: window.handle,
+    pub async fn delete_property(&self, property: Atom) -> Result<()> {
+        send_request!(self.connection, DeleteProperty {
+            window: self.handle,
             property: property.handle,
         });
 
         Ok(())
     }
 
-    pub async fn get_property(&self, window: Window, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
-        let seq = send_request!(self, delete as u8, GetProperty {
-            window: window.handle,
+    pub async fn get_property(&self, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
+        let seq = send_request!(self.connection, delete as u8, GetProperty {
+            window: self.handle,
             property: property.handle,
             type_: type_.map(|x| x.handle).unwrap_or(0),
             long_offset: long_offset,
             long_length: long_length,
         });
-        let (reply, format) = receive_reply!(self, seq, GetPropertyReply, double_fetched);
+        let (reply, format) = receive_reply!(self.connection, seq, GetPropertyReply, double_fetched);
 
         Ok(GetPropertyResult {
-            type_: Atom { handle: reply.type_ },
+            type_: self.connection.get_atom_name(reply.type_).await?,
             bytes_after: reply.bytes_after,
             value: match format {
                 0 => PropertyValue::None,
@@ -109,22 +109,26 @@ impl X11Connection {
         })
     }
 
-    pub async fn get_property_all(&self, window: Window, property: Atom, type_: Option<Atom>, delete: bool) -> Result<GetPropertyResult> {
-        self.get_property(window, property, type_, 0, u32::MAX, delete).await
+    pub async fn get_property_all(&self, property: Atom, type_: Option<Atom>, delete: bool) -> Result<GetPropertyResult> {
+        self.get_property(property, type_, 0, u32::MAX, delete).await
     }
 
-    pub async fn list_properties(&self, window: Window) -> Result<Vec<Atom>> {
-        let seq = send_request!(self, ListProperties {
-            window: window.handle,
+    pub async fn list_properties(&self) -> Result<Vec<Atom>> {
+        let seq = send_request!(self.connection, ListProperties {
+            window: self.handle,
         });
-        let reply = receive_reply!(self, seq, ListPropertiesReply);
+        let reply = receive_reply!(self.connection, seq, ListPropertiesReply);
 
-        Ok(reply.atoms.into_iter().map(|handle| Atom { handle } ).collect())
+        let mut out = vec![];
+        for atom in reply.atoms {
+            out.push(self.connection.get_atom_name(atom).await?);
+        }
+        Ok(out)
     }
 
-    pub async fn rotate_properties(&self, window: Window, properties: &[Atom], delta: i16) -> Result<()> {
-        send_request!(self, RotateProperties {
-            window: window.handle,
+    pub async fn rotate_properties(&self, properties: &[Atom], delta: i16) -> Result<()> {
+        send_request!(self.connection, RotateProperties {
+            window: self.handle,
             properties: properties.iter().map(|x| x.handle).collect(),
             delta: delta,
         });
