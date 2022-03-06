@@ -2,7 +2,7 @@ use derive_builder::Builder;
 
 use super::*;
 
-pub use crate::coding::{
+pub use crate::coding::x11::{
     GCFunction,
     GCBitmask,
     LineStyle,

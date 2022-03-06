@@ -9,8 +9,8 @@ type ClientHandshake = container {
     reserved1: u8,
     protocol_major_version: u16,
     protocol_minor_version: u16,
-    auth_proto_name_len: u16 +auto,
-    auth_proto_data_len: u16 +auto,
+    auth_proto_name_len: u16 = len(auth_proto_name) :> u16,
+    auth_proto_data_len: u16 = len(auth_proto_data) :> u16,
     reserved2: u16,
     auth_proto_name: utf8(auth_proto_name_len),
     .pad: pad(4, auth_proto_name_len),
@@ -24,7 +24,7 @@ type ServerHandshake = container {
 };
 
 type ServerHandshakeFailed = container {
-    reason_len: u8 +auto,
+    reason_len: u8 = len(reason) :> u8,
     protocol_major_version: u16,
     protocol_minor_version: u16,
     add_data_len: u16,
@@ -34,7 +34,7 @@ type ServerHandshakeFailed = container {
 
 type ServerHandshakeAuthRequired = container {
     .pad: 5,
-    add_data_len: u16,
+    add_data_len: u16 = (pad(4, len(reason)) + len(reason)) :> u16,
     reason: utf8(add_data_len * 4),
 };
 
@@ -67,14 +67,14 @@ type Screen = container {
     backing_store: BackingStore,
     save_under: bool,
     root_depth: u8,
-    depth_count: u8 +auto,
+    depth_count: u8 = len(depths) :> u8,
     depths: Depth[depth_count],
 };
 
 type Depth = container {
     depth: u8,
     reserved1: u8,
-    visualtype_count: u16 +auto,
+    visualtype_count: u16 = len(visuals) :> u16,
     reserved2: u32,
     visuals: VisualType[visualtype_count],
 };
@@ -109,10 +109,10 @@ type ServerHandshakeSuccess = container {
         resource_id_base: u32,
         resource_id_mask: u32,
         motion_buffer_size: u32,
-        vendor_len: u16 +auto,
+        vendor_len: u16 = len(vendor) :> u16,
         maximum_request_length: u16,
         screen_count: u8,
-        pixmap_format_count: u8 +auto,
+        pixmap_format_count: u8 = len(pixmap_formats) :> u8,
         image_byte_order: Endianness,
         bitmap_format_bit_order: Endianness,
         bitmap_format_scanline_unit: u8,
@@ -266,12 +266,12 @@ type HostFamily = enum u8 {
 type Host = container {
     family: HostFamily,
     reserved: u8,
-    address_length: u16 +auto,
+    address_length: u16 = len(address) :> u16,
     address: u8[address_length],
 };
 
 type Str = container {
-    str_length: u8 +auto,
+    str_length: u8 = len(str) :> u8,
     str: utf8(str_length),
 };
 
@@ -297,8 +297,8 @@ type ErrorCode = enum u8 {
     Implementation,
 };
 
-type ErrorReply = container [32] {
-    code: ErrorCode,
+type ErrorReply = container {
+    code: u8,
     sequence_number: u16,
     bad_value: u32,
     minor_opcode: u16,
@@ -307,7 +307,6 @@ type ErrorReply = container [32] {
 };
 
 // replies
-
 
 type Reply = container {
     reserved: u8,
@@ -352,6 +351,7 @@ type EventCode = enum u8 {
     ColormapNotify,
     ClientMessage,
     MappingNotify,
+    Generic = 35,
 };
 
 type Event(code: u8) = container +tagged_enum {
@@ -388,8 +388,18 @@ type Event(code: u8) = container +tagged_enum {
     ColormapNotify: ColormapNotifyEvent { code == EventCode::ColormapNotify },
     ClientMessage: ClientMessageEvent { code == EventCode::ClientMessage },
     MappingNotify: MappingNotifyEvent { code == EventCode::MappingNotify },
+    Generic: GenericEvent { code == EventCode::Generic },
     UnknownCore: u8[31] { code > EventCode::MappingNotify && code < 64 },
     Ext: u8[31] { code >= 64 && code < 128 },
+};
+
+type GenericEvent = container {
+    extension_opcode: u8,
+    sequence_number: u16,
+    length: u32 = ((len(data) :> u32 - 22) + 3) / 4,
+    evtype: u16,
+    data: u8[22 + 4 * length],
+    .pad: pad(4, 10 + len(data)),
 };
 
 type KeyEvent = container {
@@ -918,10 +928,7 @@ type Request(pad_len: u64) = container {
     length: u16,
     ext_length: u32 { length == 0 },
     data: u8[pad_len],
-    /*data: container [(ext_length ?: length :> u32)*4-pad(4, )] {
-        data: u8[pad_len], // RequestBody(major_opcode, minor_opcode, ext_length ?: length :> u32)
-    },*/
-    .pad: pad(4, pad_len) - pad_len
+    .pad: pad(4, pad_len)
 };
 
 type RequestBody(opcode: u8, minor_opcode: u8, request_length: u32) = container +tagged_enum {
@@ -1252,14 +1259,14 @@ type QueryTree = container {
 type QueryTreeReply = container {
     root_window: u32,
     parent_window: u32, // 0 for None
-    child_count: u16 +auto,
+    child_count: u16 = len(children_windows) :> u16,
     .pad: 14,
     children_windows: u32[child_count],
 };
 
 // reserved => only-if-exists
 type InternAtom = container {
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     reserved: u16,
     name: utf8(name_len),
 };
@@ -1274,7 +1281,7 @@ type GetAtomName = container {
 };
 
 type GetAtomNameReply = container {
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     .pad: 22,
     name: utf8(name_len),
 };
@@ -1330,7 +1337,7 @@ type ListProperties = container {
 };
 
 type ListPropertiesReply = container {
-    atom_count: u16 +auto,
+    atom_count: u16 = len(atoms) :> u16,
     .pad: 22,
     atoms: u32[atom_count],
 };
@@ -1512,7 +1519,7 @@ type TimeCoord = container {
 };
 
 type GetMotionEventsReply = container {
-    timecoord_count: u32 +auto,
+    timecoord_count: u32 = len(events) :> u32,
     .pad: 20,
     events: TimeCoord[timecoord_count],
 };
@@ -1573,7 +1580,7 @@ type QueryKeymapReply = container {
 
 type OpenFont = container {
     font: u32,
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     reserved: u16,
     name: utf8(name_len),
 };
@@ -1613,14 +1620,14 @@ type QueryFontReply = container {
     min_char_or_byte2: u16,
     max_char_or_byte2: u16,
     default_char: u16,
-    fontprop_count: u16 +auto,
+    fontprop_count: u16 = len(fontprops) :> u16,
     draw_direction: DrawDirection,
     min_byte1: u8,
     max_byte1: u8,
     all_chars_exist: bool,
     font_ascent: i16,
     font_descent: i16,
-    charinfo_count: u32 +auto,
+    charinfo_count: u32 = len(charinfos) :> u32,
     fontprops: FontProperty[fontprop_count],
     charinfos: CharInfo[charinfo_count],
 };
@@ -1645,19 +1652,19 @@ type QueryTextExtentsReply = container {
 
 type ListFonts = container {
     max_names: u16,
-    pattern_len: u16 +auto,
+    pattern_len: u16 = len(pattern) :> u16,
     pattern: utf8(pattern_len),
 };
 
 type ListFontsReply = container {
-    str_count: u16 +auto,
+    str_count: u16 = len(names) :> u16,
     .pad: 22,
     names: Str[str_count],
 };
 
 type ListFontsWithInfo = container {
     max_names: u16,
-    pattern_len: u16 +auto,
+    pattern_len: u16 = len(pattern) :> u16,
     pattern: utf8(pattern_len),
 };
 
@@ -1670,7 +1677,7 @@ type ListFontsWithInfoReply() = container {
     min_char_or_byte2: u16,
     max_char_or_byte2: u16,
     default_char: u16,
-    fontprop_count: u16 +auto,
+    fontprop_count: u16 = len(fontprops) :> u16,
     draw_direction: DrawDirection,
     min_byte1: u8,
     max_byte1: u8,
@@ -1683,7 +1690,7 @@ type ListFontsWithInfoReply() = container {
 };
 
 type SetFontPath = container {
-    str_count: u16 +auto,
+    str_count: u16 = len(paths) :> u16,
     reserved: u16,
     paths: Str[str_count],
 };
@@ -1692,7 +1699,7 @@ type GetFontPath = container {
 };
 
 type GetFontPathReply = container {
-    str_count: u16 +auto,
+    str_count: u16 = len(paths) :> u16,
     reserved: u16,
     paths: Str[str_count],
 };
@@ -2087,7 +2094,7 @@ type ListInstalledColormaps = container {
 };
 
 type ListInstalledColormapsReply = container {
-    colormap_count: u16 +auto,
+    colormap_count: u16 = len(colormaps) :> u16,
     .pad: 22,
     colormaps: u32[colormap_count],
 };
@@ -2111,7 +2118,7 @@ type AllocColorReply = container {
 
 type AllocNamedColor = container {
     colormap: u32,
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     reserved: u16,
     name: utf8(name_len),
 };
@@ -2135,8 +2142,8 @@ type AllocColorCells = container {
 };
 
 type AllocColorCellsReply = container {
-    pixel_count: u16 +auto,
-    mask_count: u16 +auto,
+    pixel_count: u16 = len(pixels) :> u16,
+    mask_count: u16 = len(masks) :> u16,
     .pad: 20,
     pixels: u32[pixel_count],
     masks: u32[mask_count],
@@ -2152,7 +2159,7 @@ type AllocColorPlanes = container {
 };
 
 type AllocColorPlanesReply = container {
-    pixel_count: u16 +auto,
+    pixel_count: u16 = len(pixels) :> u16,
     reserved1: u16,
     red_mask: u32,
     green_mask: u32,
@@ -2191,7 +2198,7 @@ type StoreColors = container {
 type StoreNamedColor = container {
     colormap: u32,
     pixel: u32,
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     reserved: u16,
     name: utf8(name_len),
 };
@@ -2209,14 +2216,14 @@ type Rgb = container {
 };
 
 type QueryColorsReply = container {
-    rgb_count: u16 +auto,
+    rgb_count: u16 = len(colors) :> u16,
     .pad: 22,
     colors: Rgb[rgb_count],
 };
 
 type LookupColor = container {
     colormap: u32,
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     reserved: u16,
     name: utf8(name_len),
 };
@@ -2287,7 +2294,7 @@ type QueryBestSizeReply = container {
 };
 
 type QueryExtension = container {
-    name_len: u16 +auto,
+    name_len: u16 = len(name) :> u16,
     .pad: 2,
     name: utf8(name_len),
 };
@@ -2427,7 +2434,7 @@ type ListHosts = container {
 
 // reserved => enabled: bool,
 type ListHostsReply = container {
-    host_count: u16 +auto,
+    host_count: u16 = len(hosts) :> u16,
     .pad: 22,
     hosts: Host[host_count],
 };
@@ -2509,4 +2516,16 @@ type GetModifierMappingReply(keycodes_per_modifier: u8) = container {
 };
 
 type NoOperation = container {
+};
+
+// xge
+
+type XgeQueryVersionRequest = container {
+    client_major_version: u16,
+    client_minor_version: u16,
+};
+
+type XgeQueryVersionResponse = container {
+    major_version: u16,
+    minor_version: u16,
 };

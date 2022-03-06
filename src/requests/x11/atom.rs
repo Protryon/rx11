@@ -24,7 +24,7 @@ impl fmt::Display for Atom {
 
 impl X11Connection {
     pub async fn intern_atom(&self, name: &str, only_if_exists: bool) -> Result<Atom> {
-        if let Some(value) = self.known_atoms.get(name) {
+        if let Some(value) = self.0.known_atoms.get(name) {
             return Ok(Atom {
                 handle: *value,
                 name: *value.key(),
@@ -36,8 +36,8 @@ impl X11Connection {
         let reply = receive_reply!(self, seq, InternAtomReply);
 
         let name = Intern::new(name.to_string()).as_ref();
-        self.known_atoms.insert(name, reply.atom);
-        self.known_atoms_inverse.insert(reply.atom, name);
+        self.0.known_atoms.insert(name, reply.atom);
+        self.0.known_atoms_inverse.insert(reply.atom, name);
         Ok(Atom {
             handle: reply.atom,
             name,
@@ -45,7 +45,7 @@ impl X11Connection {
     }
 
     pub(crate) async fn get_atom_name(&self, raw_atom: u32) -> Result<Atom> {
-        if let Some(value) = self.known_atoms_inverse.get(&raw_atom) {
+        if let Some(value) = self.0.known_atoms_inverse.get(&raw_atom) {
             return Ok(Atom {
                 handle: raw_atom,
                 name: *value.value(),
@@ -57,74 +57,66 @@ impl X11Connection {
         let reply = receive_reply!(self, seq, GetAtomNameReply);
 
         let name = Intern::new(reply.name).as_ref();
-        self.known_atoms.insert(name, raw_atom);
-        self.known_atoms_inverse.insert(raw_atom, name);
+        self.0.known_atoms.insert(name, raw_atom);
+        self.0.known_atoms_inverse.insert(raw_atom, name);
         Ok(Atom {
             handle: raw_atom,
             name,
         })
     }
 
-    pub(crate) fn try_get_atom_name(&self, raw_atom: u32) -> LateAtom {
-        if let Some(value) = self.known_atoms_inverse.get(&raw_atom) {
-            LateAtom::Resolved(Atom {
+    pub(crate) fn try_get_atom_name(&self, raw_atom: u32) -> Option<Atom> {
+        if let Some(value) = self.0.known_atoms_inverse.get(&raw_atom) {
+            Some(Atom {
                 handle: raw_atom,
                 name: *value.value(),
             })
         } else {
-            LateAtom::Unresolved(UnresolvedAtom(raw_atom))
+            None
         }
+    }
+
+    pub(crate) async fn maybe_get_atom_name(&self, atom: Option<u32>) -> Result<Option<Atom>> {
+        match atom {
+            Some(x) => {
+                match self.try_get_atom_name(x) {
+                    Some(atom) => Ok(Some(atom)),
+                    None => {
+                        let self_ = self.clone();
+                        tokio::spawn(async move {
+                            Ok(Some(self_.get_atom_name(x).await?))
+                        }).await?
+                    },
+                }
+            },
+            None => Ok(None),
+        }
+    }
+
+    pub(crate) async fn get_all_atoms(&self, atoms: impl IntoIterator<Item=u32>) -> Result<Vec<Atom>> {
+        let atoms = atoms.into_iter().map(|atom| self.maybe_get_atom_name(Some(atom))).collect::<Vec<_>>();
+        futures::future::join_all(atoms).await.into_iter().flat_map(|x| x.transpose()).collect::<Result<_>>()
     }
 
     pub(crate) fn register_const_atoms(&self) {
         for atom in Atom::ALL_CONST_ATOMS {
-            self.known_atoms.insert(atom.name, atom.handle);
-            self.known_atoms_inverse.insert(atom.handle, atom.name);    
+            self.0.known_atoms.insert(atom.name, atom.handle);
+            self.0.known_atoms_inverse.insert(atom.handle, atom.name);
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum LateAtom {
-    Resolved(Atom),
-    Unresolved(UnresolvedAtom)
-}
-
-impl LateAtom {
-    pub async fn resolve(self, connection: &X11Connection) -> Result<Atom> {
-        match self {
-            LateAtom::Resolved(atom) => Ok(atom),
-            LateAtom::Unresolved(atom) => atom.resolve(connection).await,
-        }
-    }
-
-    pub(crate) fn handle(&self) -> u32 {
-        match self {
-            LateAtom::Resolved(r) => r.handle,
-            LateAtom::Unresolved(r) => r.0,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct UnresolvedAtom(u32);
-
-impl UnresolvedAtom {
-    pub async fn resolve(self, connection: &X11Connection) -> Result<Atom> {
-        connection.get_atom_name(self.0).await
     }
 }
 
 impl Atom {
+    pub const NULL: Atom = Atom { handle: 0, name: "" };
     pub const PRIMARY: Atom = Atom { handle: 1, name: "PRIMARY" };
-    pub const SECONDARY: Atom = Atom { handle: 2, name: "SECONDARY" }; 
-    pub const ARC: Atom = Atom { handle: 3, name: "ARC" }; 
-    pub const ATOM: Atom = Atom { handle: 4, name: "ATOM" }; 
-    pub const BITMAP: Atom = Atom { handle: 5, name: "BITMAP" }; 
-    pub const CARDINAL: Atom = Atom { handle: 6, name: "CARDINAL" }; 
-    pub const COLORMAP: Atom = Atom { handle: 7, name: "COLORMAP" }; 
-    pub const CURSOR: Atom = Atom { handle: 8, name: "CURSOR" }; 
-    pub const CUT_BUFFER0: Atom = Atom { handle: 9, name: "CUT_BUFFER0" }; 
+    pub const SECONDARY: Atom = Atom { handle: 2, name: "SECONDARY" };
+    pub const ARC: Atom = Atom { handle: 3, name: "ARC" };
+    pub const ATOM: Atom = Atom { handle: 4, name: "ATOM" };
+    pub const BITMAP: Atom = Atom { handle: 5, name: "BITMAP" };
+    pub const CARDINAL: Atom = Atom { handle: 6, name: "CARDINAL" };
+    pub const COLORMAP: Atom = Atom { handle: 7, name: "COLORMAP" };
+    pub const CURSOR: Atom = Atom { handle: 8, name: "CURSOR" };
+    pub const CUT_BUFFER0: Atom = Atom { handle: 9, name: "CUT_BUFFER0" };
     pub const CUT_BUFFER1: Atom = Atom { handle: 10, name: "CUT_BUFFER1" };
     pub const CUT_BUFFER2: Atom = Atom { handle: 11, name: "CUT_BUFFER2" };
     pub const CUT_BUFFER3: Atom = Atom { handle: 12, name: "CUT_BUFFER3" };
@@ -186,6 +178,7 @@ impl Atom {
     pub const WM_TRANSIENT_FOR: Atom = Atom { handle: 68, name: "WM_TRANSIENT_FOR" };
 
     const ALL_CONST_ATOMS: &'static [Atom] = &[
+        Self::NULL,
         Self::PRIMARY,
         Self::SECONDARY,
         Self::ARC,
@@ -253,6 +246,6 @@ impl Atom {
         Self::FULL_NAME,
         Self::CAP_HEIGHT,
         Self::WM_CLASS,
-        Self::WM_TRANSIENT_FOR,        
+        Self::WM_TRANSIENT_FOR,
     ];
 }

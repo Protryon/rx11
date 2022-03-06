@@ -1,9 +1,12 @@
 
-use crate::coding::{self, EventCode};
+use crate::coding::GenericEvent;
+use crate::events::XIEvent;
+use crate::{coding, events::XKBEvent};
 use crate::connection::X11Connection;
-use crate::requests::{*, Keybutmask, StackMode, ConfigureWindowBitmask};
+use crate::requests::*;
+use anyhow::Result;
 
-pub use crate::coding::{
+pub use crate::coding::x11::{
     NotifyDetail,
     NotifyFlags,
     NotifyMode,
@@ -14,6 +17,10 @@ pub use crate::coding::{
     PropertyNotifyState,
     ColormapNotifyState,
     MappingNotifyRequest,
+    ConfigureWindowBitmask,
+    StackMode,
+    Keybutmask,
+    EventCode,
 };
 
 #[derive(Clone, Debug)]
@@ -51,13 +58,15 @@ pub enum Event<'a> {
     ColormapNotify(ColormapNotifyEvent<'a>),
     ClientMessage(ClientMessageEvent<'a>),
     MappingNotify(MappingNotifyEvent),
+    XKB(XKBEvent<'a>),
+    // generic event
+    XI(XIEvent<'a>),
     UnknownCore(u8, Vec<u8>),
-    Ext(u8, Vec<u8>),
 }
 
 impl<'a> Event<'a> {
-    pub(crate) fn code(&self) -> u8 {
-        match self {
+    pub(crate) fn code(&self, connection: &X11Connection) -> Result<u8> {
+        Ok(match self {
             Event::KeyPress(_) => EventCode::KeyPress as u8,
             Event::KeyRelease(_) => EventCode::KeyRelease as u8,
             Event::ButtonPress(_) => EventCode::ButtonPress as u8,
@@ -91,65 +100,77 @@ impl<'a> Event<'a> {
             Event::ColormapNotify(_) => EventCode::ColormapNotify as u8,
             Event::ClientMessage(_) => EventCode::ClientMessage as u8,
             Event::MappingNotify(_) => EventCode::MappingNotify as u8,
+            Event::XKB(_) => connection.get_ext_info(XKB_EXT_NAME).ok_or_else(|| anyhow!("missing xkb extension while sending event"))?.major_opcode,
+            Event::XI(_) => EventCode::Generic as u8,
             Event::UnknownCore(code, _) => *code,
-            Event::Ext(code, _) => *code,
-        }
+        })
     }
-}
-
-pub(crate) trait EventFns<'a> {
-    type ProtocolType;
-    
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self;
-
-    fn to_protocol(self) -> Self::ProtocolType;
 }
 
 impl<'a> Event<'a> {
-    pub(crate) fn from_protocol(connection: &'a X11Connection, code: u8, from: coding::Event) -> Self {
-        use coding::Event::*;
-        match from {
-            KeyPress(e) => Event::KeyPress(EventFns::from_protocol(connection, e)),
-            KeyRelease(e) => Event::KeyRelease(EventFns::from_protocol(connection, e)),
-            ButtonPress(e) => Event::ButtonPress(EventFns::from_protocol(connection, e)),
-            ButtonRelease(e) => Event::ButtonRelease(EventFns::from_protocol(connection, e)),
-            MotionNotify(e) => Event::MotionNotify(EventFns::from_protocol(connection, e)),
-            EnterNotify(e) => Event::EnterNotify(EventFns::from_protocol(connection, e)),
-            LeaveNotify(e) => Event::LeaveNotify(EventFns::from_protocol(connection, e)),
-            FocusIn(e) => Event::FocusIn(EventFns::from_protocol(connection, e)),
-            FocusOut(e) => Event::FocusOut(EventFns::from_protocol(connection, e)),
-            KeymapNotify(e) => Event::KeymapNotify(EventFns::from_protocol(connection, e)),
-            Expose(e) => Event::Expose(EventFns::from_protocol(connection, e)),
-            GraphicsExposure(e) => Event::GraphicsExposure(EventFns::from_protocol(connection, e)),
-            NoExposure(e) => Event::NoExposure(EventFns::from_protocol(connection, e)),
-            VisibilityNotify(e) => Event::VisibilityNotify(EventFns::from_protocol(connection, e)),
-            CreateNotify(e) => Event::CreateNotify(EventFns::from_protocol(connection, e)),
-            DestroyNotify(e) => Event::DestroyNotify(EventFns::from_protocol(connection, e)),
-            UnmapNotify(e) => Event::UnmapNotify(EventFns::from_protocol(connection, e)),
-            MapNotify(e) => Event::MapNotify(EventFns::from_protocol(connection, e)),
-            MapRequest(e) => Event::MapRequest(EventFns::from_protocol(connection, e)),
-            ReparentNotify(e) => Event::ReparentNotify(EventFns::from_protocol(connection, e)),
-            ConfigureNotify(e) => Event::ConfigureNotify(EventFns::from_protocol(connection, e)),
-            ConfigureRequest(e) => Event::ConfigureRequest(EventFns::from_protocol(connection, e)),
-            GravityNotify(e) => Event::GravityNotify(EventFns::from_protocol(connection, e)),
-            ResizeRequest(e) => Event::ResizeRequest(EventFns::from_protocol(connection, e)),
-            CirculateNotify(e) => Event::CirculateNotify(EventFns::from_protocol(connection, e)),
-            CirculateRequest(e) => Event::CirculateRequest(EventFns::from_protocol(connection, e)),
-            PropertyNotify(e) => Event::PropertyNotify(EventFns::from_protocol(connection, e)),
-            SelectionClear(e) => Event::SelectionClear(EventFns::from_protocol(connection, e)),
-            SelectionRequest(e) => Event::SelectionRequest(EventFns::from_protocol(connection, e)),
-            SelectionNotify(e) => Event::SelectionNotify(EventFns::from_protocol(connection, e)),
-            ColormapNotify(e) => Event::ColormapNotify(EventFns::from_protocol(connection, e)),
-            ClientMessage(e) => Event::ClientMessage(EventFns::from_protocol(connection, e)),
-            MappingNotify(e) => Event::MappingNotify(EventFns::from_protocol(connection, e)),
+    pub(crate) async fn from_protocol(connection: &'a X11Connection, code: u8, from: coding::x11::Event) -> Result<Event<'a>> {
+        use coding::x11::Event::*;
+        Ok(match from {
+            KeyPress(e) => Event::KeyPress(KeyEvent::from_protocol(connection, e)),
+            KeyRelease(e) => Event::KeyRelease(KeyEvent::from_protocol(connection, e)),
+            ButtonPress(e) => Event::ButtonPress(ButtonEvent::from_protocol(connection, e)),
+            ButtonRelease(e) => Event::ButtonRelease(ButtonEvent::from_protocol(connection, e)),
+            MotionNotify(e) => Event::MotionNotify(MotionNotifyEvent::from_protocol(connection, e)),
+            EnterNotify(e) => Event::EnterNotify(NotifyEvent::from_protocol(connection, e)),
+            LeaveNotify(e) => Event::LeaveNotify(NotifyEvent::from_protocol(connection, e)),
+            FocusIn(e) => Event::FocusIn(FocusEvent::from_protocol(connection, e)),
+            FocusOut(e) => Event::FocusOut(FocusEvent::from_protocol(connection, e)),
+            KeymapNotify(e) => Event::KeymapNotify(KeymapNotifyEvent::from_protocol(connection, e)),
+            Expose(e) => Event::Expose(ExposeEvent::from_protocol(connection, e)),
+            GraphicsExposure(e) => Event::GraphicsExposure(GraphicsExposureEvent::from_protocol(connection, e)),
+            NoExposure(e) => Event::NoExposure(NoExposureEvent::from_protocol(connection, e)),
+            VisibilityNotify(e) => Event::VisibilityNotify(VisibilityNotifyEvent::from_protocol(connection, e)),
+            CreateNotify(e) => Event::CreateNotify(CreateNotifyEvent::from_protocol(connection, e)),
+            DestroyNotify(e) => Event::DestroyNotify(DestroyNotifyEvent::from_protocol(connection, e)),
+            UnmapNotify(e) => Event::UnmapNotify(UnmapNotifyEvent::from_protocol(connection, e)),
+            MapNotify(e) => Event::MapNotify(MapNotifyEvent::from_protocol(connection, e)),
+            MapRequest(e) => Event::MapRequest(MapRequestEvent::from_protocol(connection, e)),
+            ReparentNotify(e) => Event::ReparentNotify(ReparentNotifyEvent::from_protocol(connection, e)),
+            ConfigureNotify(e) => Event::ConfigureNotify(ConfigureNotifyEvent::from_protocol(connection, e)),
+            ConfigureRequest(e) => Event::ConfigureRequest(ConfigureRequestEvent::from_protocol(connection, e)),
+            GravityNotify(e) => Event::GravityNotify(GravityNotifyEvent::from_protocol(connection, e)),
+            ResizeRequest(e) => Event::ResizeRequest(ResizeRequestEvent::from_protocol(connection, e)),
+            CirculateNotify(e) => Event::CirculateNotify(CirculateNotifyEvent::from_protocol(connection, e)),
+            CirculateRequest(e) => Event::CirculateRequest(CirculateRequestEvent::from_protocol(connection, e)),
+            PropertyNotify(e) => Event::PropertyNotify(PropertyNotifyEvent::from_protocol(connection, e).await?),
+            SelectionClear(e) => Event::SelectionClear(SelectionClearEvent::from_protocol(connection, e).await?),
+            SelectionRequest(e) => Event::SelectionRequest(SelectionRequestEvent::from_protocol(connection, e).await?),
+            SelectionNotify(e) => Event::SelectionNotify(SelectionNotifyEvent::from_protocol(connection, e).await?),
+            ColormapNotify(e) => Event::ColormapNotify(ColormapNotifyEvent::from_protocol(connection, e)),
+            ClientMessage(e) => Event::ClientMessage(ClientMessageEvent::from_protocol(connection, e).await?),
+            MappingNotify(e) => Event::MappingNotify(MappingNotifyEvent::from_protocol(connection, e)),
+            Generic(e) => {
+                let extension = connection.get_ext_info_by_opcode(e.extension_opcode)
+                    .ok_or_else(|| anyhow!("received generic event for unknown extension"))?;
+                match &**extension.key() {
+                    crate::requests::XINPUT_EXT_NAME => {
+                        return Ok(Event::XI(XIEvent::from_protocol(connection, e.evtype, e.data).await?));
+                    },
+                    _ => bail!("unimplemented event for extension {}", extension.key()),
+                }
+            },
             UnknownCore(e) => Event::UnknownCore(code, e.into()),
-            Ext(e) => Event::Ext(code, e.into()),
-        }
+            Ext(e) => {
+                let extension = connection.get_ext_info_by_event_start(code)
+                    .ok_or_else(|| anyhow!("received ext event for unknown extension"))?;
+                match &**extension.key() {
+                    crate::requests::XKB_EXT_NAME => {
+                        return Ok(Event::XKB(XKBEvent::from_protocol(connection, e).await?));
+                    },
+                    _ => bail!("unimplemented event for extension {}", extension.key()),
+                }
+            },
+        })
     }
 
-    pub(crate) fn to_protocol(self) -> (u8, coding::Event) {
-        use coding::Event::*;
-        let code = self.code();
+    pub(crate) fn to_protocol(self, connection: &X11Connection) -> Result<(u8, coding::x11::Event)> {
+        use coding::x11::Event::*;
+        let code = self.code(connection)?;
         let event = match self {
             Event::KeyPress(e) => KeyPress(e.to_protocol()),
             Event::KeyRelease(e) => KeyRelease(e.to_protocol()),
@@ -184,19 +205,37 @@ impl<'a> Event<'a> {
             Event::ColormapNotify(e) => ColormapNotify(e.to_protocol()),
             Event::ClientMessage(e) => ClientMessage(e.to_protocol()),
             Event::MappingNotify(e) => MappingNotify(e.to_protocol()),
+            Event::XKB(e) => {
+                let event = e.to_protocol();
+                let mut data_raw = vec![];
+                event.encode_sync(&mut data_raw)?;
+                Ext(data_raw)
+            },
+            Event::XI(e) => {
+                let event = e.to_protocol();
+                let mut data_raw = vec![];
+                event.encode_sync(&mut data_raw, event.code())?;
+
+                Generic(GenericEvent {
+                    extension_opcode: connection.get_ext_info(XINPUT_EXT_NAME).ok_or_else(|| anyhow!("missing xi2 extension when sending event"))?.major_opcode,
+                    sequence_number: 0,
+                    length: 0,
+                    evtype: event.code() as u16,
+                    data: data_raw,
+                })
+            },
             Event::UnknownCore(_, e) => UnknownCore(e.into()),
-            Event::Ext(_, e) => Ext(e.into()),
         };
-        (code, event)
+        Ok((code, event))
     }
 }
 
-// impl From<coding::Event> for Event {
-//     fn from(from: coding::Event) -> Self {
+// impl From<coding::x11::Event> for Event {
+//     fn from(from: coding::x11::Event) -> Self {
 //     }
 // }
 
-// impl From<Event> for coding::Event {
+// impl From<Event> for coding::x11::Event {
 //     fn from(from: Event) -> Self {
 //     }
 // }
@@ -217,10 +256,9 @@ pub struct KeyEvent<'a> {
     pub same_screen: bool,
 }
 
-impl<'a> EventFns<'a> for KeyEvent<'a> {
-    type ProtocolType = coding::KeyEvent;
+impl<'a> KeyEvent<'a> {
 
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::KeyEvent) -> Self {
         Self {
             keycode: from.keycode,
             sequence_number: from.sequence_number,
@@ -240,8 +278,8 @@ impl<'a> EventFns<'a> for KeyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::KeyEvent {
+        coding::x11::KeyEvent {
             keycode: self.keycode,
             sequence_number: self.sequence_number,
             time: self.time.0,
@@ -274,10 +312,9 @@ pub struct ButtonEvent<'a> {
     pub same_screen: bool,
 }
 
-impl<'a> EventFns<'a> for ButtonEvent<'a> {
-    type ProtocolType = coding::ButtonEvent;
+impl<'a> ButtonEvent<'a> {
 
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ButtonEvent) -> Self {
         Self {
             button: from.button,
             sequence_number: from.sequence_number,
@@ -297,8 +334,8 @@ impl<'a> EventFns<'a> for ButtonEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ButtonEvent {
+        coding::x11::ButtonEvent {
             button: self.button,
             sequence_number: self.sequence_number,
             time: self.time.0,
@@ -331,10 +368,8 @@ pub struct MotionNotifyEvent<'a> {
     pub same_screen: bool,
 }
 
-impl<'a> EventFns<'a> for MotionNotifyEvent<'a> {
-    type ProtocolType = coding::MotionNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> MotionNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::MotionNotifyEvent) -> Self {
         Self {
             is_hint: from.is_hint,
             sequence_number: from.sequence_number,
@@ -354,8 +389,8 @@ impl<'a> EventFns<'a> for MotionNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::MotionNotifyEvent {
+        coding::x11::MotionNotifyEvent {
             is_hint: self.is_hint,
             sequence_number: self.sequence_number,
             time: self.time.0,
@@ -389,10 +424,8 @@ pub struct NotifyEvent<'a> {
     pub flags: NotifyFlags,
 }
 
-impl<'a> EventFns<'a> for NotifyEvent<'a> {
-    type ProtocolType = coding::NotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> NotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::NotifyEvent) -> Self {
         Self {
             detail: from.detail,
             sequence_number: from.sequence_number,
@@ -413,8 +446,8 @@ impl<'a> EventFns<'a> for NotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::NotifyEvent {
+        coding::x11::NotifyEvent {
             detail: self.detail,
             sequence_number: self.sequence_number,
             time: self.time.0,
@@ -440,10 +473,8 @@ pub struct FocusEvent<'a> {
     pub mode: FocusMode,
 }
 
-impl<'a> EventFns<'a> for FocusEvent<'a> {
-    type ProtocolType = coding::FocusEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> FocusEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::FocusEvent) -> Self {
         Self {
             detail: from.detail,
             sequence_number: from.sequence_number,
@@ -452,8 +483,8 @@ impl<'a> EventFns<'a> for FocusEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::FocusEvent {
+        coding::x11::FocusEvent {
             detail: self.detail,
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
@@ -467,17 +498,15 @@ pub struct KeymapNotifyEvent {
     pub keys: Vec<u8>,
 }
 
-impl<'a> EventFns<'a> for KeymapNotifyEvent {
-    type ProtocolType = coding::KeymapNotifyEvent;
-
-    fn from_protocol(_connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl KeymapNotifyEvent {
+    fn from_protocol(_connection: &X11Connection, from: coding::x11::KeymapNotifyEvent) -> Self {
         Self {
             keys: from.keys,
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::KeymapNotifyEvent {
+        coding::x11::KeymapNotifyEvent {
             keys: self.keys,
         }
     }
@@ -494,10 +523,8 @@ pub struct ExposeEvent<'a> {
     pub count: u16,
 }
 
-impl<'a> EventFns<'a> for ExposeEvent<'a> {
-    type ProtocolType = coding::ExposeEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> ExposeEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ExposeEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             window: Window { handle: from.window, connection },
@@ -509,8 +536,8 @@ impl<'a> EventFns<'a> for ExposeEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ExposeEvent {
+        coding::x11::ExposeEvent {
             sequence_number: self.sequence_number,
             window: self.window.handle,
             x: self.x,
@@ -535,10 +562,8 @@ pub struct GraphicsExposureEvent<'a> {
     pub major_opcode: u8,
 }
 
-impl<'a> EventFns<'a> for GraphicsExposureEvent<'a> {
-    type ProtocolType = coding::GraphicsExposureEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> GraphicsExposureEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::GraphicsExposureEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             drawable: Drawable::Raw(RawDrawable { handle: from.drawable, connection }),
@@ -552,8 +577,8 @@ impl<'a> EventFns<'a> for GraphicsExposureEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::GraphicsExposureEvent {
+        coding::x11::GraphicsExposureEvent {
             sequence_number: self.sequence_number,
             drawable: self.drawable.handle(),
             x: self.x,
@@ -575,10 +600,8 @@ pub struct NoExposureEvent<'a> {
     pub major_opcode: u8,
 }
 
-impl<'a> EventFns<'a> for NoExposureEvent<'a> {
-    type ProtocolType = coding::NoExposureEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> NoExposureEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::NoExposureEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             drawable: Drawable::Raw(RawDrawable { handle: from.drawable, connection }),
@@ -587,8 +610,8 @@ impl<'a> EventFns<'a> for NoExposureEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::NoExposureEvent {
+        coding::x11::NoExposureEvent {
             sequence_number: self.sequence_number,
             drawable: self.drawable.handle(),
             minor_opcode: self.minor_opcode,
@@ -604,10 +627,8 @@ pub struct VisibilityNotifyEvent<'a> {
     pub state: VisibilityState,
 }
 
-impl<'a> EventFns<'a> for VisibilityNotifyEvent<'a> {
-    type ProtocolType = coding::VisibilityNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> VisibilityNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::VisibilityNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             window: Window { handle: from.window, connection },
@@ -615,8 +636,8 @@ impl<'a> EventFns<'a> for VisibilityNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::VisibilityNotifyEvent {
+        coding::x11::VisibilityNotifyEvent {
             sequence_number: self.sequence_number,
             window: self.window.handle,
             state: self.state,
@@ -637,10 +658,8 @@ pub struct CreateNotifyEvent<'a> {
     pub override_redirect: bool,
 }
 
-impl<'a> EventFns<'a> for CreateNotifyEvent<'a> {
-    type ProtocolType = coding::CreateNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> CreateNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::CreateNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             parent_window: Window { handle: from.parent_window, connection },
@@ -654,8 +673,8 @@ impl<'a> EventFns<'a> for CreateNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::CreateNotifyEvent {
+        coding::x11::CreateNotifyEvent {
             sequence_number: self.sequence_number,
             parent_window: self.parent_window.handle,
             window: self.window.handle,
@@ -676,10 +695,8 @@ pub struct DestroyNotifyEvent<'a> {
     pub window: Window<'a>,
 }
 
-impl<'a> EventFns<'a> for DestroyNotifyEvent<'a> {
-    type ProtocolType = coding::DestroyNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> DestroyNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::DestroyNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -687,8 +704,8 @@ impl<'a> EventFns<'a> for DestroyNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::DestroyNotifyEvent {
+        coding::x11::DestroyNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -704,10 +721,8 @@ pub struct UnmapNotifyEvent<'a> {
     pub from_configure: bool,
 }
 
-impl<'a> EventFns<'a> for UnmapNotifyEvent<'a> {
-    type ProtocolType = coding::UnmapNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> UnmapNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::UnmapNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -716,8 +731,8 @@ impl<'a> EventFns<'a> for UnmapNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::UnmapNotifyEvent {
+        coding::x11::UnmapNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -734,10 +749,8 @@ pub struct MapNotifyEvent<'a> {
     pub override_redirect: bool,
 }
 
-impl<'a> EventFns<'a> for MapNotifyEvent<'a> {
-    type ProtocolType = coding::MapNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> MapNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::MapNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -746,8 +759,8 @@ impl<'a> EventFns<'a> for MapNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::MapNotifyEvent {
+        coding::x11::MapNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -763,10 +776,8 @@ pub struct MapRequestEvent<'a> {
     pub window: Window<'a>,
 }
 
-impl<'a> EventFns<'a> for MapRequestEvent<'a> {
-    type ProtocolType = coding::MapRequestEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> MapRequestEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::MapRequestEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -774,8 +785,8 @@ impl<'a> EventFns<'a> for MapRequestEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::MapRequestEvent {
+        coding::x11::MapRequestEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -794,10 +805,8 @@ pub struct ReparentNotifyEvent<'a> {
     pub override_redirect: bool,
 }
 
-impl<'a> EventFns<'a> for ReparentNotifyEvent<'a> {
-    type ProtocolType = coding::ReparentNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> ReparentNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ReparentNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -809,8 +818,8 @@ impl<'a> EventFns<'a> for ReparentNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ReparentNotifyEvent {
+        coding::x11::ReparentNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -836,10 +845,8 @@ pub struct ConfigureNotifyEvent<'a> {
     pub override_redirect: bool,
 }
 
-impl<'a> EventFns<'a> for ConfigureNotifyEvent<'a> {
-    type ProtocolType = coding::ConfigureNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> ConfigureNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ConfigureNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -857,8 +864,8 @@ impl<'a> EventFns<'a> for ConfigureNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ConfigureNotifyEvent {
+        coding::x11::ConfigureNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -888,10 +895,8 @@ pub struct ConfigureRequestEvent<'a> {
     pub bitmask: ConfigureWindowBitmask,
 }
 
-impl<'a> EventFns<'a> for ConfigureRequestEvent<'a> {
-    type ProtocolType = coding::ConfigureRequestEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> ConfigureRequestEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ConfigureRequestEvent) -> Self {
         Self {
             stack_mode: from.stack_mode,
             sequence_number: from.sequence_number,
@@ -910,8 +915,8 @@ impl<'a> EventFns<'a> for ConfigureRequestEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ConfigureRequestEvent {
+        coding::x11::ConfigureRequestEvent {
             stack_mode: self.stack_mode,
             sequence_number: self.sequence_number,
             parent_window: self.parent_window.handle,
@@ -936,10 +941,8 @@ pub struct GravityNotifyEvent<'a> {
     pub y: i16,
 }
 
-impl<'a> EventFns<'a> for GravityNotifyEvent<'a> {
-    type ProtocolType = coding::GravityNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> GravityNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::GravityNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -949,8 +952,8 @@ impl<'a> EventFns<'a> for GravityNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::GravityNotifyEvent {
+        coding::x11::GravityNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -968,10 +971,8 @@ pub struct ResizeRequestEvent<'a> {
     pub height: u16,
 }
 
-impl<'a> EventFns<'a> for ResizeRequestEvent<'a> {
-    type ProtocolType = coding::ResizeRequestEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> ResizeRequestEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ResizeRequestEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             window: Window { handle: from.window, connection },
@@ -980,8 +981,8 @@ impl<'a> EventFns<'a> for ResizeRequestEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ResizeRequestEvent {
+        coding::x11::ResizeRequestEvent {
             sequence_number: self.sequence_number,
             window: self.window.handle,
             width: self.width,
@@ -998,10 +999,8 @@ pub struct CirculateNotifyEvent<'a> {
     pub place: CirculatePlace,
 }
 
-impl<'a> EventFns<'a> for CirculateNotifyEvent<'a> {
-    type ProtocolType = coding::CirculateNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> CirculateNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::CirculateNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             event_window: Window { handle: from.event_window, connection },
@@ -1010,8 +1009,8 @@ impl<'a> EventFns<'a> for CirculateNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::CirculateNotifyEvent {
+        coding::x11::CirculateNotifyEvent {
             sequence_number: self.sequence_number,
             event_window: self.event_window.handle,
             window: self.window.handle,
@@ -1028,10 +1027,8 @@ pub struct CirculateRequestEvent<'a> {
     pub place: CirculatePlace,
 }
 
-impl<'a> EventFns<'a> for CirculateRequestEvent<'a> {
-    type ProtocolType = coding::CirculateRequestEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> CirculateRequestEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::CirculateRequestEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             parent_window: Window { handle: from.parent_window, connection },
@@ -1040,8 +1037,8 @@ impl<'a> EventFns<'a> for CirculateRequestEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::CirculateRequestEvent {
+        coding::x11::CirculateRequestEvent {
             sequence_number: self.sequence_number,
             parent_window: self.parent_window.handle,
             window: self.window.handle,
@@ -1054,29 +1051,27 @@ impl<'a> EventFns<'a> for CirculateRequestEvent<'a> {
 pub struct PropertyNotifyEvent<'a> {
     pub sequence_number: u16,
     pub window: Window<'a>,
-    pub name: LateAtom,
+    pub name: Atom,
     pub time: Timestamp,
     pub state: PropertyNotifyState,
 }
 
-impl<'a> EventFns<'a> for PropertyNotifyEvent<'a> {
-    type ProtocolType = coding::PropertyNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
-        Self {
+impl<'a> PropertyNotifyEvent<'a> {
+    async fn from_protocol(connection: &'a X11Connection, from: coding::x11::PropertyNotifyEvent) -> Result<PropertyNotifyEvent<'a>> {
+        Ok(Self {
             sequence_number: from.sequence_number,
             window: Window { handle: from.window, connection },
-            name: connection.try_get_atom_name(from.name_atom),
+            name: connection.get_atom_name(from.name_atom).await?,
             time: Timestamp(from.time),
             state: from.state,
-        }
+        })
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::PropertyNotifyEvent {
+        coding::x11::PropertyNotifyEvent {
             sequence_number: self.sequence_number,
             window: self.window.handle,
-            name_atom: self.name.handle(),
+            name_atom: self.name.handle,
             time: self.time.0,
             state: self.state,
         }
@@ -1088,27 +1083,25 @@ pub struct SelectionClearEvent<'a> {
     pub sequence_number: u16,
     pub time: Timestamp,
     pub owner_window: Window<'a>,
-    pub selection: LateAtom,
+    pub selection: Atom,
 }
 
-impl<'a> EventFns<'a> for SelectionClearEvent<'a> {
-    type ProtocolType = coding::SelectionClearEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
-        Self {
+impl<'a> SelectionClearEvent<'a> {
+    async fn from_protocol(connection: &'a X11Connection, from: coding::x11::SelectionClearEvent) -> Result<SelectionClearEvent<'a>> {
+        Ok(Self {
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
             owner_window: Window { handle: from.owner_window, connection },
-            selection: connection.try_get_atom_name(from.selection_atom),
-        }
+            selection: connection.get_atom_name(from.selection_atom).await?,
+        })
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::SelectionClearEvent {
+        coding::x11::SelectionClearEvent {
             sequence_number: self.sequence_number,
             time: self.time.0,
             owner_window: self.owner_window.handle,
-            selection_atom: self.selection.handle(),
+            selection_atom: self.selection.handle,
         }
     }
 }
@@ -1119,38 +1112,36 @@ pub struct SelectionRequestEvent<'a> {
     pub time: Timestamp,
     pub owner_window: Window<'a>,
     pub requestor_window: Window<'a>,
-    pub selection: LateAtom,
-    pub target: LateAtom,
-    pub property: Option<LateAtom>,
+    pub selection: Atom,
+    pub target: Atom,
+    pub property: Option<Atom>,
 }
 
-impl<'a> EventFns<'a> for SelectionRequestEvent<'a> {
-    type ProtocolType = coding::SelectionRequestEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
-        Self {
+impl<'a> SelectionRequestEvent<'a> {
+    async fn from_protocol(connection: &'a X11Connection, from: coding::x11::SelectionRequestEvent) -> Result<SelectionRequestEvent<'a>> {
+        Ok(Self {
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
             owner_window: Window { handle: from.owner_window, connection },
             requestor_window: Window { handle: from.requestor_window, connection },
-            selection: connection.try_get_atom_name(from.selection_atom),
-            target: connection.try_get_atom_name(from.target_atom),
+            selection: connection.get_atom_name(from.selection_atom).await?,
+            target: connection.get_atom_name(from.target_atom).await?,
             property: match from.property_atom {
                 0 => None,
-                atom => Some(connection.try_get_atom_name(atom))
+                atom => Some(connection.get_atom_name(atom).await?)
             }
-        }
+        })
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::SelectionRequestEvent {
+        coding::x11::SelectionRequestEvent {
             sequence_number: self.sequence_number,
             time: self.time.0,
             owner_window: self.owner_window.handle,
             requestor_window: self.requestor_window.handle,
-            selection_atom: self.selection.handle(),
-            target_atom: self.target.handle(),
-            property_atom: self.property.map(|x| x.handle()).unwrap_or(0),
+            selection_atom: self.selection.handle,
+            target_atom: self.target.handle,
+            property_atom: self.property.map(|x| x.handle).unwrap_or(0),
         }
     }
 }
@@ -1160,36 +1151,34 @@ pub struct SelectionNotifyEvent<'a> {
     pub sequence_number: u16,
     pub time: Timestamp,
     pub requestor_window: Window<'a>,
-    pub selection: LateAtom,
-    pub target: LateAtom,
-    pub property: Option<LateAtom>,
+    pub selection: Atom,
+    pub target: Atom,
+    pub property: Option<Atom>,
 }
 
-impl<'a> EventFns<'a> for SelectionNotifyEvent<'a> {
-    type ProtocolType = coding::SelectionNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
-        Self {
+impl<'a> SelectionNotifyEvent<'a> {
+    async fn from_protocol(connection: &'a X11Connection, from: coding::x11::SelectionNotifyEvent) -> Result<SelectionNotifyEvent<'a>> {
+        Ok(Self {
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
             requestor_window: Window { handle: from.requestor_window, connection },
-            selection: connection.try_get_atom_name(from.selection_atom),
-            target: connection.try_get_atom_name(from.target_atom),
+            selection: connection.get_atom_name(from.selection_atom).await?,
+            target: connection.get_atom_name(from.target_atom).await?,
             property: match from.property_atom {
                 0 => None,
-                atom => Some(connection.try_get_atom_name(atom))
+                atom => Some(connection.get_atom_name(atom).await?)
             }
-        }
+        })
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::SelectionNotifyEvent {
+        coding::x11::SelectionNotifyEvent {
             sequence_number: self.sequence_number,
             time: self.time.0,
             requestor_window: self.requestor_window.handle,
-            selection_atom: self.selection.handle(),
-            target_atom: self.target.handle(),
-            property_atom: self.property.map(|x| x.handle()).unwrap_or(0),
+            selection_atom: self.selection.handle,
+            target_atom: self.target.handle,
+            property_atom: self.property.map(|x| x.handle).unwrap_or(0),
         }
     }
 }
@@ -1203,10 +1192,8 @@ pub struct ColormapNotifyEvent<'a> {
     pub state: ColormapNotifyState,
 }
 
-impl<'a> EventFns<'a> for ColormapNotifyEvent<'a> {
-    type ProtocolType = coding::ColormapNotifyEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> ColormapNotifyEvent<'a> {
+    fn from_protocol(connection: &'a X11Connection, from: coding::x11::ColormapNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             window: Window { handle: from.window, connection },
@@ -1219,8 +1206,8 @@ impl<'a> EventFns<'a> for ColormapNotifyEvent<'a> {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ColormapNotifyEvent {
+        coding::x11::ColormapNotifyEvent {
             sequence_number: self.sequence_number,
             window: self.window.handle,
             colormap: self.colormap.map(|x| x.handle).unwrap_or(0),
@@ -1235,29 +1222,27 @@ pub struct ClientMessageEvent<'a> {
     pub format: u8,
     pub sequence_number: u16,
     pub window: Window<'a>,
-    pub type_: LateAtom,
+    pub type_: Atom,
     pub data: Vec<u8>,
 }
 
-impl<'a> EventFns<'a> for ClientMessageEvent<'a> {
-    type ProtocolType = coding::ClientMessageEvent;
-
-    fn from_protocol(connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
-        Self {
+impl<'a> ClientMessageEvent<'a> {
+    async fn from_protocol(connection: &'a X11Connection, from: coding::x11::ClientMessageEvent) -> Result<ClientMessageEvent<'a>> {
+        Ok(Self {
             format: from.format,
             sequence_number: from.sequence_number,
             window: Window { handle: from.window, connection },
-            type_: connection.try_get_atom_name(from.type_atom),
+            type_: connection.get_atom_name(from.type_atom).await?,
             data: from.data,
-        }
+        })
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::ClientMessageEvent {
+        coding::x11::ClientMessageEvent {
             format: self.format,
             sequence_number: self.sequence_number,
             window: self.window.handle,
-            type_atom: self.type_.handle(),
+            type_atom: self.type_.handle,
             data: self.data,
         }
     }
@@ -1271,10 +1256,8 @@ pub struct MappingNotifyEvent {
     pub count: u8,
 }
 
-impl<'a> EventFns<'a> for MappingNotifyEvent {
-    type ProtocolType = coding::MappingNotifyEvent;
-
-    fn from_protocol(_connection: &'a X11Connection, from: Self::ProtocolType) -> Self {
+impl<'a> MappingNotifyEvent {
+    fn from_protocol(_connection: &'a X11Connection, from: coding::x11::MappingNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
             request: from.request,
@@ -1283,8 +1266,8 @@ impl<'a> EventFns<'a> for MappingNotifyEvent {
         }
     }
 
-    fn to_protocol(self) -> Self::ProtocolType {
-        Self::ProtocolType {
+    fn to_protocol(self) -> coding::x11::MappingNotifyEvent {
+        coding::x11::MappingNotifyEvent {
             sequence_number: self.sequence_number,
             request: self.request,
             first_keycode: self.first_keycode,

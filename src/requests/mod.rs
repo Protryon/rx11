@@ -1,77 +1,19 @@
 use anyhow::Result;
 use crate::connection::X11Connection;
-use crate::coding::*;
 use crate::events::Event;
-use crate::{send_request, receive_reply};
+use crate::{send_request, send_request_ext, receive_reply};
 
-mod extensions;
-pub use extensions::*;
+pub mod x11;
+pub use x11::*;
 
-mod window;
-pub use window::*;
+pub mod xkb;
+pub use xkb::*;
 
-mod pixel;
-pub use pixel::*;
+pub mod xinput;
+pub use xinput::*;
 
-mod pixmap;
-pub use pixmap::*;
-
-mod colormap;
-pub use colormap::*;
-
-mod cursor;
-pub use cursor::*;
-
-mod visual;
-pub use visual::{*, Depth, VisualType};
-
-mod color;
-pub use color::*;
-
-mod font;
-pub use font::*;
-
-mod drawable;
-pub use drawable::*;
-
-mod atom;
-pub use atom::*;
-
-mod timestamp;
-pub use timestamp::*;
-
-mod selection;
-pub use selection::*;
-
-mod properties;
-pub use properties::*;
-
-mod event;
-pub use event::*;
-
-mod grab;
-pub use grab::*;
-
-mod pointer;
-pub use pointer::*;
-
-mod gcontext;
-pub use gcontext::*;
-
-mod inputs;
-pub use inputs::*;
-
-mod keysym;
-pub use keysym::*;
-
-mod screensaver;
-pub use screensaver::*;
-
-mod access_control;
-pub use access_control::*;
-
-mod control;
-pub use control::*;
+pub mod xge;
+pub use xge::*;
 
 /// Any resource inside of X11, including extensions
 pub trait Resource<'a>: Sized {

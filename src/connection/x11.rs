@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, sync::{atomic::{AtomicU16, Ordering, AtomicU32}, Arc}, fmt};
 
-use tokio::{io::{AsyncRead, AsyncWrite, BufReader, BufWriter, AsyncWriteExt}, sync::{mpsc, oneshot, Mutex, broadcast}};
-use crate::{coding::{x11::{Request, Response, ClientHandshake, ServerHandshake, ServerHandshakeBody, ServerHandshakeSuccess}, RequestBody, ResponseBody, ErrorReply, Screen}, requests::{Depth, VisualType, Visual}, events::Event};
-use dashmap::{DashMap, mapref::entry::Entry};
+use tokio::{io::{AsyncRead, AsyncWrite, BufReader, BufWriter, AsyncWriteExt}, sync::{mpsc, oneshot, Mutex, broadcast::{self, error::RecvError}}};
+use crate::{coding::{x11::{Request, Response, ClientHandshake, ServerHandshake, ServerHandshakeBody, ServerHandshakeSuccess}, RequestBody, ResponseBody, ErrorReply, Screen, ErrorCode, xkb::XKBErrorCode}, requests::{Depth, VisualType, Visual, XKB_EXT_NAME}, events::Event};
+use dashmap::{DashMap, mapref::{entry::Entry, multiple::RefMulti}};
 
 use super::*;
 
@@ -22,7 +22,14 @@ struct X11OutputContext {
     responses: DashMap<u16, ResponseValue>,
 }
 
-pub struct X11Connection {
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ExtInfo {
+    pub major_opcode: u8,
+    pub event_start: u8,
+    pub error_start: u8,
+}
+
+pub(crate) struct X11ConnectionInterior {
     writer: mpsc::Sender<RequestLen>,
     output: Arc<X11OutputContext>,
     seq: AtomicU16,
@@ -32,26 +39,72 @@ pub struct X11Connection {
     events_sender: broadcast::Sender<(u8, crate::coding::Event)>,
     pub(crate) known_atoms: DashMap<&'static str, u32>,
     pub(crate) known_atoms_inverse: DashMap<u32, &'static str>,
+    // map of ext name -> major opcode
+    pub(crate) registered_extensions: DashMap<String, ExtInfo>,
 }
 
-pub type X11ConnectionOwned = Arc<X11Connection>;
+impl X11Connection {
+    pub(crate) fn get_ext_info(&self, ext_name: &str) -> Option<ExtInfo> {
+        self.0.registered_extensions.get(ext_name).map(|x| *x.value())
+    }
+
+    pub(crate) fn get_ext_info_by_opcode(&self, opcode: u8) -> Option<RefMulti<'_, String, ExtInfo>> {
+        self.0.registered_extensions.iter()
+            .find(|entry| entry.value().major_opcode == opcode)
+    }
+
+    pub(crate) fn get_ext_info_by_event_start(&self, code: u8) -> Option<RefMulti<'_, String, ExtInfo>> {
+        self.0.registered_extensions.iter()
+            .find(|entry| entry.value().event_start == code)
+    }
+}
+
+#[derive(Clone)]
+pub struct X11Connection(pub(crate) Arc<X11ConnectionInterior>);
 
 const PROTOCOL_MAJOR_VERSION: u16 = 11;
 const PROTOCOL_MINOR_VERSION: u16 = 0;
 
-impl fmt::Display for ErrorReply {
+#[derive(Debug, Clone)]
+pub enum X11ErrorCode {
+    X11(ErrorCode),
+    XKB(XKBErrorCode),
+    Unknown(u8),
+}
+
+impl X11ErrorCode {
+    fn from_raw(connection: &X11Connection, code: u8) -> Self {
+        if let Ok(code) = ErrorCode::from_repr(code) {
+            return X11ErrorCode::X11(code);
+        }
+        if let Some(xkb) = connection.get_ext_info(XKB_EXT_NAME) {
+            if code == xkb.error_start {
+                return X11ErrorCode::XKB(XKBErrorCode::Keyboard);
+            }
+        }
+        X11ErrorCode::Unknown(code)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct X11ErrorReply {
+    pub bad_value: u32,
+    pub code: X11ErrorCode,
+}
+
+impl fmt::Display for X11ErrorReply {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "x11 error: {:?} <{}>", self.code, self.bad_value)
     }
 }
 
-impl std::error::Error for ErrorReply {
+impl std::error::Error for X11ErrorReply {
 
 }
 
 pub enum X11Error {
     Error(anyhow::Error),
-    X11Error(ErrorReply),
+    X11Error(X11ErrorReply),
 }
 
 impl fmt::Debug for X11Error {
@@ -183,10 +236,9 @@ impl X11Connection {
                 },
             }
         }
-        Ok(())
     }
 
-    pub async fn connect(host: &str, display: u16) -> Result<Arc<Self>> {
+    pub async fn connect(host: &str, display: u16) -> Result<Self> {
         #[cfg(not(target_os = "windows"))]
         if host == "" || host == "unix" {
             if let Ok(c) = UnixConnection::connect(display).await {
@@ -202,7 +254,7 @@ impl X11Connection {
     pub async fn open(
         writer: impl AsyncWrite + Unpin + Send + Sync + 'static,
         reader: impl AsyncRead + Unpin + Send + Sync + 'static,
-    ) -> Result<Arc<Self>> {
+    ) -> Result<Self> {
         let mut writer = BufWriter::new(writer);
         let mut reader = BufReader::new(reader);
         let handshake = ClientHandshake {
@@ -277,7 +329,7 @@ impl X11Connection {
             }
         });
 
-        let self_ = Self {
+        let self_ = Self(Arc::new(X11ConnectionInterior {
             output,
             writer: in_sender,
             handshake,
@@ -285,24 +337,34 @@ impl X11Connection {
             next_resource_id: AtomicU32::new(0),
             known_atoms: DashMap::new(),
             known_atoms_inverse: DashMap::new(),
+            registered_extensions: DashMap::new(),
             events_sender,
             depths
-        };
+        }));
         self_.register_const_atoms();
-        Ok(Arc::new(self_))
+
+        self_.init_state().await?;
+
+        Ok(self_)
+    }
+
+    async fn init_state(&self) -> Result<()> {
+        self.enable_xge().await?;
+        self.enable_xkb().await?;
+        self.enable_xinput2().await?;
+        Ok(())
     }
 
     pub fn handshake(&self) -> &ServerHandshakeSuccess {
-        &self.handshake
+        &self.0.handshake
     }
 
     pub(crate) fn new_resource_id(&self) -> u32 {
-        let raw = self.next_resource_id.fetch_add(1, Ordering::SeqCst);
-        (raw << self.handshake.resource_id_mask.trailing_zeros()) | self.handshake.resource_id_base
+        let raw = self.0.next_resource_id.fetch_add(1, Ordering::SeqCst);
+        (raw << self.0.handshake.resource_id_mask.trailing_zeros()) | self.0.handshake.resource_id_base
     }
 
-    pub async fn send_request(&self, major_opcode: u8, minor_opcode: u8, body: RequestBody) -> Result<u16> {
-        let is_void = body.is_void();
+    pub async fn send_request(&self, major_opcode: u8, minor_opcode: u8, is_void: bool, body: RequestBody) -> Result<u16> {
         let mut data = vec![];
         body.encode_sync(&mut data, major_opcode, minor_opcode, 0)?;
         let mut length = data.len() as u32 + 4;
@@ -329,11 +391,11 @@ impl X11Connection {
             data,
         };
         //TODO: there is a race condition in this atomic here, seq could get out-of-order
-        let seq = self.seq.fetch_add(1, Ordering::SeqCst);
+        let seq = self.0.seq.fetch_add(1, Ordering::SeqCst);
         if is_void {
-            self.output.responses.insert(seq, ResponseValue::InboundVoidError);
+            self.0.output.responses.insert(seq, ResponseValue::InboundVoidError);
         }
-        self.writer.send(RequestLen { request, len: length as u64 }).await
+        self.0.writer.send(RequestLen { request, len: length as u64 }).await
             .ok().ok_or_else(|| anyhow!("x11 connection dead"))?;
         Ok(seq)
     }
@@ -344,7 +406,7 @@ impl X11Connection {
             Value(Response),
         }
 
-        let entry = self.output.responses.entry(seq);
+        let entry = self.0.output.responses.entry(seq);
         let value = match entry {
             Entry::Vacant(vacant) => {
                 let (sender, receiver) = oneshot::channel();
@@ -384,7 +446,10 @@ impl X11Connection {
         let response = self.receive_response(seq).await?;
         match response.body {
             ResponseBody::ErrorReply(e) => {
-                Err(X11Error::X11Error(e))
+                Err(X11Error::X11Error(X11ErrorReply {
+                    bad_value: e.bad_value,
+                    code: X11ErrorCode::from_raw(self, e.code),
+                }))
             },
             ResponseBody::Reply(r) => {
                 decoder(&mut &r.data[..]).map_err(Into::into)
@@ -397,7 +462,10 @@ impl X11Connection {
         let response = self.receive_response(seq).await?;
         match response.body {
             ResponseBody::ErrorReply(e) => {
-                Err(X11Error::X11Error(e))
+                Err(X11Error::X11Error(X11ErrorReply {
+                    bad_value: e.bad_value,
+                    code: X11ErrorCode::from_raw(self, e.code),
+                }))
             },
             ResponseBody::Reply(r) => {
                 decoder(&mut &r.data[..], r.reserved).map_err(Into::into)
@@ -409,21 +477,24 @@ impl X11Connection {
     pub fn events(&self) -> EventReceiver<'_> {
         EventReceiver {
             connection: self,
-            receiver: self.events_sender.subscribe(),
+            receiver: self.0.events_sender.subscribe(),
         }
     }
 
     pub fn depths(&self) -> &BTreeMap<u8, Depth> {
-        &self.depths
+        &self.0.depths
     }
 
     pub fn screen(&self) -> &Screen {
         &self.handshake().screens[0]
     }
 
-    pub async fn check_errors(&self) -> Vec<ErrorReply> {
-        let mut errors = self.output.pending_errors.lock().await;
-        errors.drain(..).collect()
+    pub async fn check_errors(&self) -> Vec<X11ErrorReply> {
+        let mut errors = self.0.output.pending_errors.lock().await;
+        errors.drain(..).map(|e| X11ErrorReply {
+            bad_value: e.bad_value,
+            code: X11ErrorCode::from_raw(self, e.code),
+        }).collect()
     }
 
     pub async fn log_errors(&self) {
@@ -439,26 +510,55 @@ pub struct EventReceiver<'a> {
 }
 
 impl<'a> EventReceiver<'a> {
-    pub async fn recv(&mut self) -> Option<Event<'_>> {
-        self.receiver.recv().await
-            .ok()
-            .map(|(code, event)| Event::from_protocol(self.connection, code, event))
+    pub async fn recv(&mut self) -> Option<Result<Event<'_>>> {
+        let (code, event) = loop {
+            match self.receiver.recv().await {
+                Ok(x) => break x,
+                Err(RecvError::Lagged(_)) => (), // todo: warn here
+                Err(RecvError::Closed) => return None,
+            }
+        };
+        Some(Event::from_protocol(self.connection, code, event).await)
     }
 }
 
 #[macro_export]
 macro_rules! send_request {
     ($self_:expr, $name:ident { $($key:ident: $value:expr,)* }) => {
-        $self_.send_request(MajorOpcode::$name as u8, 0, RequestBody::$name($name {
-            $($key: $value,)*
-            ..Default::default()
-        })).await?
+        {
+            let body = RequestBody::$name($name {
+                $($key: $value,)*
+                ..Default::default()
+            });
+            $self_.send_request(MajorOpcode::$name as u8, 0, body.is_void(), body).await?   
+        }
     };
     ($self_:expr, $reserved:expr, $name:ident { $($key:ident: $value:expr,)* }) => {
-        $self_.send_request(MajorOpcode::$name as u8, $reserved, RequestBody::$name($name {
-            $($key: $value,)*
-            ..Default::default()
-        })).await?
+        {
+            let reserved = $reserved;
+            let body = RequestBody::$name($name {
+                $($key: $value,)*
+                ..Default::default()
+            });
+            $self_.send_request(MajorOpcode::$name as u8, reserved, body.is_void(), body).await?
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! send_request_ext {
+    ($self_:expr, $ext_code:expr, $opcode:expr, $is_void:expr, $name:ident { $($key:ident: $value:expr,)* }) => {
+        {
+            let raw = $name {
+                $($key: $value,)*
+                ..Default::default()
+            };
+            let mut buf_out = vec![];
+            raw.encode_sync(&mut buf_out)?;
+            $self_.send_request($ext_code as u8, $opcode as u8, $is_void, RequestBody::Ext(crate::coding::ExtRequest {
+                data: buf_out,
+            })).await?
+        }
     };
 }
 
@@ -477,23 +577,3 @@ macro_rules! receive_reply {
         $self_.receive_reply($seq, |x| $reply::decode_sync(x)).await?
     };
 }
-
-// impl Response {
-//     fn seq(&self) -> Option<u16> {
-//         self.body.seq()
-//     }
-// }
-
-// impl ResponseBody {
-//     fn seq(&self) -> Option<u16> {
-//         match self {
-//             ResponseBody::ErrorReply(e) => {
-//                 Some(e.sequence_number)
-//             },
-//             ResponseBody::Reply(e) => {
-//                 Some(e.sequence_number)
-//             },
-//             ResponseBody::Event(_) => None,
-//         }
-//     }
-// }

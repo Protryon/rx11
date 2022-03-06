@@ -1,0 +1,1868 @@
+import_ffi utf8 as type;
+import_ffi pad as function;
+import_ffi bits as function;
+import_ffi sum as function;
+
+// common types
+
+type XKBEventType = enum u8 {
+    NewKeyboardNotify = 0,
+    MapNotify,
+    StateNotify,
+    ControlsNotify,
+    IndicatorStateNotify,
+    IndicatorMapNotify,
+    NamesNotify,
+    CompatMapNotify,
+    BellNotify,
+    ActionMessage,
+    AccessXNotify,
+    ExtensionDeviceNotify,
+};
+
+type XKBEventMask = bitfield u16 {
+    NewKeyboardNotify = 0x1,
+    MapNotify,
+    StateNotify,
+    ControlsNotify,
+    IndicatorStateNotify,
+    IndicatorMapNotify,
+    NamesNotify,
+    CompatMapNotify,
+    BellNotify,
+    ActionMessage,
+    AccessXNotify,
+    ExtensionDeviceNotify,
+};
+
+type NKNDetail = bitfield u16 {
+    Keycodes = 0x1,
+    Geometry,
+    DeviceID,
+};
+
+type AXNDetail = bitfield u16 {
+    SKPress = 0x1,
+    SKAccept,
+    SKReject,
+    SKRelease,
+    BKAccept,
+    BKReject,
+    AXKWarning,
+};
+
+type MapPart = bitfield u16 {
+    KeyTypes = 0x1,
+    KeySyms,
+    ModifierMap,
+    ExplicitComponents,
+    KeyActions,
+    KeyBehaviors,
+    VirtualMods,
+    VirtualModMap,
+};
+
+type SetMapFlags = bitfield u16 {
+    ResizeTypes = 0x1,
+    RecomputeActions,
+};
+
+type StatePart = bitfield u16 {
+    ModifierState = 0x1,
+    ModifierBase,
+    ModifierLatch,
+    ModifierLock,
+    GroupState,
+    GroupBase,
+    GroupLatch,
+    GroupLock,
+    CompatState,
+    GrabMods,
+    CompatGrabMods,
+    LookupMods,
+    CompatLookupMods,
+    PointerButtons,
+};
+
+type BoolCtrl = bitfield u32 {
+    RepeatKeys = 0x1,
+    SlowKeys,
+    BounceKeys,
+    StickyKeys,
+    MouseKeys,
+    MouseKeysAccel,
+    AccessXKeys,
+    AccessXTimeoutMask,
+    AccessXFeedbackMask,
+    AudibleBellMask,
+    Overlay1Mask,
+    Overlay2Mask,
+    IgnoreGroupLockMask,
+};
+
+type Control = bitfield u32 {
+    GroupsWrap = 1 << 27,
+    InternalMods,
+    IgnoreLockMods,
+    PerKeyRepeat,
+    ControlsEnabled,
+};
+
+type AXOption = bitfield u16 {
+    SKPressFB = 0x1,
+    SKAcceptFB,
+    FeatureFB,
+    SlowWarnFB,
+    IndicatorFB,
+    StickyKeysFB,
+    TwoKeys,
+    LatchToLock,
+    SKReleaseFB,
+    SKRejectFB,
+    BKRejectFB,
+    DumbBell,
+};
+
+type LedClassResult = enum u16 {
+    KbdFeedbackClass = 0,
+    LedFeedbackClass = 4,
+};
+
+type LedClass = enum u16 {
+    KbdFeedbackClass = 0,
+    LedFeedbackClass = 4,
+    DfltXIClass = 0x300,
+    AllXIClasses = 0x500,
+};
+
+type BellClassResult = enum u8 {
+    KbdFeedbackClass = 0,
+    BellFeedbackClass = 5,
+};
+
+type BellClass = enum u16 {
+    KbdFeedbackClass = 0,
+    BellFeedbackClass = 5,
+    DfltXIClass = 0x300,
+};
+
+type ID = enum u16 {
+    UseCoreKbd = 0x100,
+    UseCorePtr = 0x200,
+    DfltXIClass = 0x300,
+    DfltXIId = 0x400,
+    AllXIClass = 0x500,
+    AllXIId = 0x600,
+    XINone = 0xff00,
+};
+
+type Group = enum u8 {
+    One = 0,
+    Two,
+    Three,
+    Four,
+    // only valid in some contexts
+    Any = 254,
+    All = 255,
+};
+
+type SetOfGroup = bitfield u8 {
+    Group1 = 0x1,
+    Group2,
+    Group3,
+    Group4,
+    Group5,
+    Group6,
+    Group7,
+    // only valid in some contexts
+    Any = 0x80,
+};
+
+type GroupsWrap = enum u8 {
+    WrapIntoRange = 0,
+    ClampIntoRange = 1 << 6,
+    RedirectIntoRange = 1 << 7,
+};
+
+type VModsHigh = bitfield u8 {
+    V8 = 0x1,
+    V9,
+    V10,
+    V11,
+    V12,
+    V13,
+    V14,
+    V15,
+};
+
+type VModsLow = bitfield u8 {
+    V0 = 0x1,
+    V1,
+    V2,
+    V3,
+    V4,
+    V5,
+    V6,
+    V7,
+};
+
+type VMod = bitfield u16 {
+    V0 = 0x1,
+    V1,
+    V2,
+    V3,
+    V4,
+    V5,
+    V6,
+    V7,
+    V8,
+    V9,
+    V10,
+    V11,
+    V12,
+    V13,
+    V14,
+    V15,
+};
+
+type Explicit = bitfield u8 {
+    KeyType1 = 0x1,
+    KeyType2,
+    KeyType3,
+    KeyType4,
+    Interpret,
+    AutoRepeat,
+    Behavior,
+    VModMap,
+};
+
+type SymInterpretMatch = enum u8 {
+    NoneOf = 0,
+    AnyOfOrNone,
+    AnyOf,
+    AllOf,
+    Exactly,
+    LevelOneNoneOf = 128,
+    LevelOneAnyOfOrNone,
+    LevelOneAnyOf,
+    LevelOneAllOf,
+    LevelOneExactly,
+};
+
+type SymInterpMatch = enum u8 {
+    OpMask = 0x7f,
+    LevelOneOnly = 0x80,
+};
+
+type IMFlag = bitfield u8 {
+    NoAutomatic = 1 << 5,
+    LEDDrivesKB,
+    NoExplicit,
+};
+
+type IMModsWhich = bitfield u8 {
+    UseBase = 0x1,
+    UseLatched,
+    UseLocked,
+    UseEffective,
+    UseCompat,
+};
+
+type IMGroupsWhich = bitfield u8 {
+    UseBase = 0x1,
+    UseLatched,
+    UseLocked,
+    UseEffective,
+    UseCompat,
+};
+
+type ModMask = bitfield u8 {
+    Shift = 0x01,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+};
+
+type IndicatorMap = container {
+    flags: IMFlag,
+    which_groups: IMGroupsWhich,
+    groups: SetOfGroup,
+    which_mods: IMModsWhich,
+    mods: ModMask,
+    real_mods: ModMask,
+    vmods: VMod,
+    ctrls: BoolCtrl,
+};
+
+type CMDetail = bitfield u8 {
+    SymInterp = 0x1,
+    GroupCompat,
+};
+
+type NameDetail = bitfield u16 {
+    Keycodes = 0x1,
+    Geometry,
+    Symbols,
+    PhysSymbols,
+    Types,
+    Compat,
+    KeyTypeNames,
+    KTLevelNames,
+    IndicatorNames,
+    KeyNames,
+    KeyAliases,
+    VirtualModNames,
+    GroupNames,
+    RGNames,
+};
+
+type GBNDetail = bitfield u16 {
+    Types = 0x1,
+    CompatMap,
+    ClientSymbols,
+    ServerSymbols,
+    IndicatorMaps,
+    KeyNames,
+    Geometry,
+    OtherNames,
+};
+
+type XIFeature = bitfield u16 {
+    Keyboards = 0x1,
+    ButtonActions,
+    IndicatorNames,
+    IndicatorMaps,
+    IndicatorState,
+    UnsupportedFeature = 0x8000,
+};
+
+type PerClientFlag = bitfield u32 {
+    DetectableAutoRepeat = 0x1,
+    GrabsUseXKBState,
+    AutoResetControls,
+    LookupStateWhenGrabbed,
+    SendEventUsesXKBState,
+};
+
+type ModDef = container {
+    mask: ModMask,
+    real_mods: ModMask,
+    vmods: VMod,
+};
+
+type KeyAlias = container {
+    real: utf8(4),
+    alias: utf8(4),
+};
+
+type CountedString16 = container {
+    length: u16 = len(string) :> u16,
+    string: utf8(length),
+    .pad: pad(4, length + 2),
+};
+
+type KTMapEntry = container {
+    active: bool,
+    mods_mask: ModMask,
+    level: u8,
+    mods_mods: ModMask,
+    mods_vmods: VMod,
+    .pad: 2,
+};
+
+type KeyType = container {
+    mods_mask: ModMask,
+    mods_mods: ModMask,
+    mods_vmods: VMod,
+    num_levels: u8,
+    num_map_entries: u8 = len(map) :> u8,
+    has_preserve: bool,
+    .pad: 1,
+    map: KTMapEntry[num_map_entries],
+    preserve: ModDef[num_map_entries] { has_preserve },
+};
+
+type KeySymMap = container {
+    kt_index: u8[4],
+    group_info: u8,
+    width: u8,
+    num_syms: u16 = len(syms) :> u16,
+    syms: u32[num_syms],  
+};
+
+// key behaviors
+
+type BehaviorType = enum u8 {
+    Default = 0,
+    Lock,
+    RadioGroup,
+    Overlay1,
+    Overlay2,
+    PermamentLock = 0x81,
+    PermamentRadioGroup,
+    PermamentOverlay1,
+    PermamentOverlay2,
+};
+
+type BehaviorData(type_: BehaviorType) = container +tagged_enum {
+    RadioGroup: u8 { type_ == BehaviorType::RadioGroup || type_ == BehaviorType::PermamentRadioGroup },
+    Keycode: u8 { type_ == BehaviorType::Overlay1 || type_ == BehaviorType::Overlay2 || type_ == BehaviorType::PermamentOverlay1 || type_ == BehaviorType::PermamentOverlay2 },
+    Unused: u8,
+};
+
+type Behavior = container {
+    type_: BehaviorType,
+    data: BehaviorData(type_),
+};
+
+type SetBehavior = container {
+    keycode: u8,
+    behavior_type: Behavior,
+    .pad: 1,
+};
+
+type SetExplicit = container {
+    keycode: u8,
+    explicit: Explicit,
+};
+
+type KeyModMap = container {
+    keycode: u8,
+    mods: ModMask,
+};
+
+type KeyVModMap = container {
+    keycode: u8,
+    .pad: 1,
+    vmods: VMod,
+};
+
+type KTSetMapEntry = container {
+    level: u8,
+    real_mods: ModMask,
+    virtual_mods: VMod,
+};
+
+type SetKeyType = container {
+    mask: ModMask,
+    real_mods: ModMask,
+    virtual_mods: ModMask,
+    num_levels: u8,
+    num_map_entries: u8 = len(entries) :> u8,
+    preserve: bool,
+    .pad: 1,
+    entries: KTSetMapEntry[num_map_entries],
+    preserve_entries: KTSetMapEntry[num_map_entries] { preserve },
+};
+
+//todo: is this correct? xkb spec thinks so, xcb-proto disagrees
+type Property = container {
+    name: CountedString16,
+    value: CountedString16,
+};
+
+// from x11.pspec
+type Point = container {
+    x: i16,
+    y: i16,
+};
+
+// from x11.pspec
+type Keybutmask = bitfield u16 {
+    Shift = 0x01,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+    Button1,
+    Button2,
+    Button3,
+    Button4,
+    Button5,
+};
+
+type Outline = container {
+    num_points: u8 = len(points) :> u8,
+    corner_radius: u8,
+    .pad: 2,
+    points: Point[num_points],
+};
+
+type Shape = container {
+    name_atom: u32,
+    num_outlines: u8 = len(outlines) :> u8,
+    primary_index: u8,
+    approx_index: u8,
+    .pad: 1,
+    outlines: Outline[num_outlines],
+};
+
+type Key = container {
+    name: utf8(4),
+    gap: i16,
+    shape_index: u8,
+    color_index: u8,
+};
+
+type OverlayKey = container {
+    over: utf8(4),
+    under: utf8(4),
+};
+
+type OverlayRow = container {
+    row_under: u8,
+    num_keys: u8 = len(keys) :> u8,
+    .pad: 2,
+    keys: OverlayKey[num_keys],
+};
+
+type Overlay = container {
+    name_atom: u32,
+    num_rows: u8 = len(rows) :> u8,
+    .pad: 3,
+    rows: OverlayRow[num_rows],
+};
+
+type Row = container {
+    top: i16,
+    left: i16,
+    num_keys: u8 = len(keys) :> u8,
+    vertical: bool,
+    .pad: 2,
+    keys: Key[num_keys],
+};
+
+type DoodadType = enum u8 {
+    Outline = 1,
+    Solid,
+    Text,
+    Indicator,
+    Logo,
+};
+
+type DoodadData(type_: DoodadType) = container +tagged_enum {
+    Shape: container {
+        color_index: u8,
+        shape_index: u8,
+        .pad: 6,
+    } { type_ == DoodadType::Outline || type_ == DoodadType::Solid },
+    Text: container {
+        width: u16,
+        height: u16,
+        color_index: u8,
+        .pad: 3,
+        text: CountedString16,
+        font: CountedString16,
+    } { type_ == DoodadType::Text },
+    Indicator: container {
+        shape_index: u8,
+        on_color_index: u8,
+        off_color_index: u8,
+        .pad: 5,
+    } { type_ == DoodadType::Indicator },
+    Logo: container {
+        color_index: u8,
+        shape_index: u8,
+        .pad: 6,
+        logo_name: CountedString16,
+    } { type_ == DoodadType::Logo },
+};
+
+type Doodad = container {
+    name_atom: u32,
+    type_: DoodadType,
+    priority: u8,
+    top: i16,
+    left: i16,
+    angle: i16,
+    data: DoodadData(type_),
+};
+
+type Section = container {
+    name_atom: u32,
+    top: i16,
+    left: i16,
+    width: u16,
+    height: u16,
+    angle: i16,
+    priority: u8,
+    num_rows: u8 = len(rows) :> u8,
+    num_doodads: u8 = len(doodads) :> u8,
+    num_overlays: u8 = len(overlays) :> u8,
+    .pad: 2,
+    rows: Row[num_rows],
+    doodads: Doodad[num_doodads],
+    overlays: Overlay[num_overlays],
+};
+
+type Listing = container {
+    flags: u16,
+    length: u16 = len(string) :> u16,
+    string: utf8(length),
+    .pad: pad(2, length),
+};
+
+type DeviceLedInfo = container {
+    led_class: LedClass,
+    led_id: ID,
+    names_present: u32,
+    maps_present: u32,
+    phys_indicators: u32,
+    state: u32,
+    name_atoms: u32[bits(names_present)],
+    maps: IndicatorMap[bits(maps_present)],
+};
+
+// errors
+
+type XKBError = enum u8 {
+    BadId = 253,
+    BadClass,
+    BadDevice,
+};
+
+// key actions
+
+type SA = bitfield u8 {
+    ClearLocks = 0x1,
+    LatchToLock,
+    UseModMapMods,
+    GroupAbsolute,
+};
+
+type SAType = enum u8 {
+    NoAction = 0,
+    SetMods,
+    LatchMods,
+    LockMods,
+    SetGroup,
+    LatchGroup,
+    LockGroup,
+    MovePtr,
+    PtrBtn,
+    LockPtrBtn,
+    SetPtrDflt,
+    IsoLock,
+    Terminate,
+    SwitchScreen,
+    SetControls,
+    LockControls,
+    ActionMessage,
+    RedirectKey,
+    DeviceBtn,
+    LockDeviceBtn,
+    DeviceValuator,
+    // xcb-proto doesn't reference this, but it is in x11 server source.
+    XFree86Private = 0x86,
+};
+
+type SAMods = container {
+    flags: SA,
+    mask: ModMask,
+    real_mods: ModMask,
+    vmods: VMod,
+    .pad: 2
+};
+
+type SAGroup = container {
+    flags: SA,
+    group: i8,
+    .pad: 5,
+};
+
+type MovePointerFlag = bitfield u8 {
+    NoAcceleration = 0x1,
+    MoveAbsoluteX,
+    MoveAbsoluteY,
+};
+
+type SetPointerDefaultFlag = bitfield u8 {
+    AffectDefaultButton = 0x1,
+    // xcb-proto: The spec says 0x02 but Xlib uses 0x04.
+    DefaultButtonAbsolute = 0x04,
+};
+
+type IsoLockFlag = bitfield u8 {
+    NoLock = 0x1,
+    NoUnlock,
+    UseModMapMods,
+    GroupAbsolute,
+    IsoDefaultIsGroup,
+};
+
+type IsoLockNoAffect = bitfield u8 {
+    Controls = 1 << 3,
+    Pointer,
+    Group,
+    Mods,
+};
+
+type SwitchScreenFlag = bitfield u8 {
+    Application = 0x1,
+    Absolute = 0x4,
+};
+
+type SAControls = container {
+    .pad: 1,
+    bool_controls: BoolCtrl,
+    .pad: 2,
+};
+
+type ActionMessageFlag = bitfield u8 {
+    OnPress = 0x1,
+    OnRelease,
+    GenKeyEvent,
+};
+
+type LockDeviceFlags = bitfield u8 {
+    NoLock = 0x1,
+    NoUnlock,
+};
+
+type ValuatorWhat = enum u8 {
+    IgnoreVal = 0,
+    SetValMin,
+    SetValCenter,
+    SetValMax,
+    SetValRelative,
+    SetValAbsolute,
+};
+
+type ActionData(type_: SAType) = container +tagged_enum {
+    NoAction: container {
+        .pad: 7,
+    } { type_ == SAType::NoAction},
+    SetMods: SAMods { type_ == SAType::SetMods },
+    LatchMods: SAMods { type_ == SAType::LatchMods },
+    LockMods: SAMods { type_ == SAType::LockMods },
+    SetGroup: SAGroup { type_ == SAType::SetGroup },
+    LatchGroup: SAGroup { type_ == SAType::LatchGroup },
+    LockGroup: SAGroup { type_ == SAType::LockGroup },
+    MovePointer: container {
+        flags: MovePointerFlag,
+        // must be be for x & y
+        x: i16,
+        y: i16,
+        .pad: 2,
+    } { type_ == SAType::MovePtr },
+    PointerButton: container {
+        flags: u8,
+        count: u8,
+        button: u8,
+        .pad: 4,
+    } { type_ == SAType::PtrBtn },
+    LockPointerButton: container {
+        flags: u8,
+        .pad: 1,
+        button: u8,
+        .pad: 4,
+    } { type_ == SAType::LockPtrBtn },
+    SetPointerDefault: container {
+        flags: SetPointerDefaultFlag,
+        affect: SetPointerDefaultFlag,
+        value: u8,
+        .pad: 4,
+    } { type_ == SAType::SetPtrDflt },
+    IsoLock: container {
+        flags: IsoLockFlag,
+        mask: ModMask,
+        real_mods: ModMask,
+        group: i8,
+        affect: IsoLockNoAffect,
+        vmods: VMod,
+    } { type_ == SAType::IsoLock },
+    Terminate: container {
+        .pad: 7,
+    } { type_ == SAType::Terminate },
+    SwitchScreen: container {
+        flags: SwitchScreenFlag,
+        new_screen: i8,
+        .pad: 5,
+    } { type_ == SAType::SwitchScreen },
+    SetControls: SAControls { type_ == SAType::SetControls },
+    LockControls: SAControls { type_ == SAType::LockControls },
+    ActionMessage: container {
+        flags: ActionMessageFlag,
+        message: u8[6],
+    } { type_ == SAType::ActionMessage },
+    RedirectKey: container {
+        new_key: u8,
+        mask: ModMask,
+        real_modifiers: ModMask,
+        vmod_mask: VMod,
+        vmods: VMod,
+    } { type_ == SAType::RedirectKey },
+    DeviceButton: container {
+        flags: u8,
+        count: u8,
+        button: u8,
+        device: u8,
+        .pad: 3,
+    } { type_ == SAType::DeviceBtn },
+    LockDeviceButton: container {
+        flags: LockDeviceFlags,
+        .pad: 1,
+        button: u8,
+        device: u8,
+        .pad: 3,
+    } { type_ == SAType::LockDeviceBtn },
+    DeviceValuator: container {
+        device: u8,
+        val1_what: ValuatorWhat,
+        val1_index: u8,
+        val1_value: u8,
+        val2_what: ValuatorWhat,
+        val2_index: u8,
+        val2_value: u8,
+    } { type_ == SAType::DeviceValuator },
+    XFree86Private: container {
+        raw: u8[7],
+    } { type_ == SAType::XFree86Private },
+};
+
+type Action = container {
+    type_: SAType,
+    data: ActionData(type_),
+};
+
+type SymInterpret = container {
+    keysym: u32,
+    mods: ModMask,
+    // xcb-proto: "match" may also have XkbSI_LevelOneOnly (0x80) or'd into it
+    si: SymInterpretMatch,
+    vmod: VModsLow,
+    flags: u8,
+    action: Action,
+};
+
+// requests
+
+type UseExtensionRequest = container {
+    wanted_major: u16,
+    wanted_minor: u16,
+};
+
+// supported: bool,
+type UseExtensionResponse = container {
+    server_major: u16,
+    server_minor: u16,
+    .pad: 20,
+};
+
+type SelectEventDetails(mask: XKBEventMask) = container {
+    new_keyboard_notify: container {
+        affect_new_keyboard: NKNDetail,
+        new_keyboard_details: NKNDetail,
+    } { mask.NewKeyboardNotify },
+    state_notify: container {
+        affect_state: StatePart,
+        state_details: StatePart,
+    } { mask.StateNotify },
+    controls_notify: container {
+        affect_controls: Control,
+        control_details: Control,
+    } { mask.ControlsNotify },
+    indicator_state_notify: container {
+        affect_indicator_state: u32,
+        indicator_state_details: u32,
+    } { mask.IndicatorStateNotify },
+    indicator_map_notify: container {
+        affect_indicator_map: u32,
+        indicator_map_details: u32,
+    } { mask.IndicatorMapNotify },
+    names_notify: container {
+        affect_names: NameDetail,
+        names_details: NameDetail,
+    } { mask.NamesNotify },
+    compat_map_notify: container {
+        affect_compat: CMDetail,
+        compat_details: CMDetail,
+    } { mask.CompatMapNotify },
+    bell_notify: container {
+        affect_bell: u8,
+        bell_details: u8,
+    } { mask.BellNotify },
+    action_message: container {
+        affect_msg_details: u8,
+        msg_details: u8,
+    } { mask.ActionMessage },
+    access_x_notify: container {
+        affect_access_x: AXNDetail,
+        access_x_details: AXNDetail,
+    } { mask.AccessXNotify },
+    extension_device_notify: container {
+        affect_extension_device: XIFeature,
+        extension_device_details: XIFeature,
+    } { mask.ExtensionDeviceNotify },
+};
+
+type SelectEventsRequest = container {
+    device_spec: u16,
+    affect_which: XKBEventMask,
+    clear: XKBEventMask,
+    select_all: XKBEventMask,
+    affect_map: MapPart,
+    map: MapPart,
+    details: SelectEventDetails(affect_which & (~clear & ~select_all)),
+};
+
+type BellRequest = container {
+    device_spec: u16,
+    bell_class: BellClass,
+    bell_id: ID,
+    percent: i8,
+    force_sound: bool,
+    event_only: bool,
+    .pad: 1,
+    pitch: i16,
+    duration: i16,
+    .pad: 2,
+    name_atom: u32,
+    window: u32,
+};
+
+type GetStateRequest = container {
+    device_spec: u16,
+    .pad: 2,
+};
+
+// device_id: u8,
+type GetStateResponse = container {
+    mods: ModMask,
+    base_mods: ModMask,
+    latched_mods: ModMask,
+    locked_mods: ModMask,
+    group: Group,
+    locked_group: Group,
+    base_group: i16,
+    latched_group: i16,
+    compat_state: ModMask,
+    grab_mods: ModMask,
+    compat_grab_mods: ModMask,
+    lookup_mods: ModMask,
+    compat_lookup_mods: ModMask,
+    .pad: 1,
+    pointer_button_state: Keybutmask,
+    .pad: 6,
+};
+
+type LatchLockStateRequest = container {
+    device_spec: u16,
+    affect_mod_locks: ModMask,
+    mod_locks: ModMask,
+    lock_group: bool,
+    group_lock: Group,
+    affect_mod_latches: ModMask,
+    // xcb-proto doesn't like mod_latches
+    mod_latches: ModMask,
+    .pad: 1,
+    latch_group: bool,
+    group_latch: u16,
+};
+
+type GetControlsRequest = container {
+    device_spec: u16,
+    .pad: 2,
+};
+
+type MouseKeys = container {
+    delay: u16,
+    interval: u16,
+    time_to_max: u16,
+    max_curve: u16,
+    curve: u16,
+};
+
+// device_id: u8,
+type GetControlsResponse = container {
+    mouse_keys_default_button: u8,
+    num_groups: u8,
+    groups_wrap: u8,
+    internal_mods_mask: ModMask,
+    ignore_lock_mods_mask: ModMask,
+    internal_mods_real_mods: ModMask,
+    ignore_lock_mods_real_mods: ModMask,
+    .pad: 1,
+    internal_mods_vmods: VMod,
+    ignore_lock_mods_vmods: VMod,
+    repeat_delay: u16,
+    repeat_interval: u16,
+    slow_keys_delay: u16,
+    debounce_delay: u16,
+    mouse_keys: MouseKeys,
+    access_x_option: AXOption,
+    access_x_timeout: u16,
+    access_x_timeout_options_mask: AXOption,
+    access_x_timeout_options_values: AXOption,
+    .pad: 2,
+    access_x_timeout_mask: BoolCtrl,
+    access_x_timeout_values: BoolCtrl,
+    enabled_controls: BoolCtrl,
+    per_key_repeat: u8[32],
+};
+
+type SetControlsRequest = container {
+    device_spec: u16,
+    affect_internal_real_mods: ModMask,
+    internal_real_mods: ModMask,
+    affect_ignore_lock_real_mods: ModMask,
+    ignore_lock_real_mods: ModMask,
+    affect_internal_virtual_mods: VMod,
+    internal_virtual_mods: VMod,
+    affect_ignore_lock_virtual_mods: VMod,
+    ignore_lock_virtual_mods: VMod,
+    mouse_keys_default_button: u8,
+    groups_wrap: u8,
+    access_x_option: AXOption,
+    .pad: 2,
+    affect_enabled_controls: BoolCtrl,
+    enabled_controls: BoolCtrl,
+    change_controls: Control,
+    repeat_delay: u16,
+    repeat_interval: u16,
+    slow_keys_delay: u16,
+    debounce_delay: u16,
+    mouse_keys: MouseKeys,
+    access_x_timeout: u16,
+    access_x_timeout_mask: AXOption,
+    access_x_timeout_values: AXOption,
+    access_x_timeout_options_mask: AXOption,
+    access_x_timeout_options_values: AXOption,
+    per_key_repeat: u8[32],
+};
+
+type GetMapRequest = container {
+    device_spec: u16,
+    full: MapPart,
+    partial: MapPart,
+    first_type: u8,
+    num_types: u8,
+    first_key_sym: u8,
+    num_key_syms: u8,
+    first_key_action: u8,
+    num_key_actions: u8,
+    first_key_behavior: u8,
+    num_key_behaviors: u8,
+    vmods: VMod,
+    first_key_explicit: u8,
+    num_keys_explicit: u8,
+    first_mod_map_key: u8,
+    num_mod_map_keys: u8,
+    first_vmod_map_key: u8,
+    num_vmod_map_keys: u8,
+    .pad: 2,
+};
+
+type MapParts(
+    part: MapPart,
+    num_types: u8,
+    num_key_syms: u8,
+    num_key_actions: u8,
+    total_key_actions: u16,
+    total_key_behaviors: u8,
+    vmods: VMod,
+    total_keys_explicit: u8,
+    total_mod_map_keys: u8,
+    total_vmod_map_keys: u8,
+) = container {
+    types: KeyType[num_types] { part.KeyTypes },
+    syms: KeySymMap[num_key_syms] { part.KeySyms },
+    actions: container {
+        action_counts: u8[num_key_actions],
+        .pad: pad(4, num_key_actions),
+        actions: Action[total_key_actions],
+    } { part.KeyActions },
+    behaviors: SetBehavior[total_key_behaviors] { part.KeyBehaviors },
+    vmod_masks: container {
+        vmod_masks: ModMask[bits(vmods)],
+        .pad: pad(4, bits(vmods)),
+    } { part.VirtualMods },
+    explicits: container {
+        explicits: SetExplicit[total_keys_explicit],
+        .pad: pad(4, total_keys_explicit :> u64 * 2),
+    } { part.ExplicitComponents },
+    modmap: container {
+        modmap: KeyModMap[total_mod_map_keys],
+        .pad: pad(4, total_mod_map_keys :> u64 * 2),
+    } { part.ModifierMap },
+    vmodmap: KeyVModMap[total_vmod_map_keys] { part.VirtualModMap },
+};
+
+// device_id: u8,
+type GetMapResponse = container {
+    .pad: 2,
+    min_keycode: u8,
+    max_keycode: u8,
+    present: MapPart,
+
+    first_type: u8,
+    num_types: u8,
+    total_types: u8,
+
+    first_key_sym: u8,
+    total_key_syms: u16,
+    num_key_syms: u8,
+
+    first_key_action: u8,
+    total_key_actions: u16,
+    num_key_actions: u8,
+
+    first_key_behavior: u8,
+    num_key_behaviors: u8,
+    total_key_behaviors: u8,
+
+    first_key_explicit: u8,
+    num_keys_explicit: u8,
+    total_keys_explicit: u8,
+
+    first_mod_map_key: u8,
+    num_mod_map_keys: u8,
+    total_mod_map_keys: u8,
+
+    first_vmod_map_key: u8,
+    num_vmod_map_keys: u8,
+    total_vmod_map_keys: u8,
+
+    .pad: 1,
+    vmods: VMod,
+
+    map: MapParts(
+        present,
+        num_types,
+        num_key_syms,
+        num_key_actions,
+        total_key_actions,
+        total_key_behaviors,
+        vmods,
+        total_keys_explicit,
+        total_mod_map_keys,
+        total_vmod_map_keys,
+    ),
+};
+
+type SetMapRequest = container {
+    device_spec: u16,
+    present: MapPart,
+    flags: SetMapFlags,
+    min_keycode: u8,
+    max_keycode: u8,
+
+    first_type: u8,
+    num_types: u8,
+
+    first_key_sym: u8,
+    num_key_syms: u8,
+    total_key_syms: u16,
+
+    first_key_action: u8,
+    num_key_actions: u8,
+    total_key_actions: u16,
+
+    first_key_behavior: u8,
+    num_key_behaviors: u8,
+    total_key_behaviors: u8,
+
+    first_key_explicit: u8,
+    num_keys_explicit: u8,
+    total_keys_explicit: u8,
+
+    first_mod_map_key: u8,
+    num_mod_map_keys: u8,
+    total_mod_map_keys: u8,
+
+    first_vmod_map_key: u8,
+    num_vmod_map_keys: u8,
+    total_vmod_map_keys: u8,
+
+    vmods: VMod,
+
+    values: MapParts(
+        present,
+        num_types,
+        num_key_syms,
+        num_key_actions,
+        total_key_actions,
+        total_key_behaviors,
+        vmods,
+        total_keys_explicit,
+        total_mod_map_keys,
+        total_vmod_map_keys,
+    ),
+};
+
+type GetCompatMapRequest = container {
+    device_spec: u16,
+    groups: SetOfGroup,
+    get_all_si: bool,
+    first_si: u16,
+    num_si: u16,
+};
+
+// device_id: u8,
+type GetCompatMapResponse = container {
+    groups: SetOfGroup,
+    .pad: 1,
+    first_si: u16,
+    num_si: u16 = len(si) :> u16,
+    total_si: u16,
+    .pad: 16,
+    si: SymInterpret[num_si],
+    group_maps: ModDef[bits(groups :> u8 & 0xf)],
+};
+
+type SetCompatMapRequest = container {
+    device_spec: u16,
+    .pad: 1,
+    recompute_actions: bool,
+    truncate_si: bool,
+    groups: SetOfGroup,
+    first_si: u16,
+    num_si: u16 = len(si) :> u16,
+    .pad: 2,
+    si: SymInterpret[num_si],
+    group_maps: ModDef[bits(groups :> u8 & 0xf)],
+};
+
+type GetIndicatorStateRequest = container {
+    device_spec: u16,
+    .pad: 2,
+};
+
+// device_id: u8,
+type GetIndicatorStateResponse = container {
+    state: u32,
+    .pad: 20,
+};
+
+type GetIndicatorMapRequest = container {
+    device_spec: u16,
+    .pad: 2,
+    which: u32,
+};
+
+// device_id: u8,
+type GetIndicatorMapResponse = container {
+    which: u32,
+    real_indicators: u32,
+    num_indicators: u8 = bits(which) :> u8,
+    .pad: 15,
+    maps: IndicatorMap[bits(which)],
+};
+
+type SetIndicatorMapRequest = container {
+    device_spec: u16,
+    .pad: 2,
+    which: u32,
+    maps: IndicatorMap[bits(which)],
+};
+
+type GetNamedIndicatorRequest = container {
+    device_spec: u16,
+    led_class: LedClass,
+    led_id: ID,
+    .pad: 2,
+    indicator_atom: u32,
+};
+
+// device_id: u8,
+type GetNamedIndicatorResponse = container {
+    indicator_atom: u32,
+    found: bool,
+    on: bool,
+    real_indicator: bool,
+    index: u8,
+    map: IndicatorMap,
+    supported: bool,
+};
+
+type SetNamedIndicatorRequest = container {
+    device_spec: u16,
+    led_class: LedClass,
+    led_id: ID,
+    .pad: 2,
+    indicator_atom: u32,
+    set_state: bool,
+    on: bool,
+    set_map: bool,
+    create_map: bool,
+    .pad: 1,
+    map: IndicatorMap,
+};
+
+type NameValues(
+    name: NameDetail,
+    num_types: u8,
+    indicators: u32,
+    vmods: VMod,
+    group_names: SetOfGroup,
+    num_keys: u8,
+    num_key_aliases: u8,
+    num_radio_groups: u8,
+) = container {
+    keycodes_name_atom: u32 { name.Keycodes },
+    geometry_name_atom: u32 { name.Geometry },
+    symbols_name_atom: u32 { name.Symbols },
+    phys_symbols_name_atom: u32 { name.PhysSymbols },
+    types_name_atom: u32 { name.Types },
+    compat_name_atom: u32 { name.Compat },
+    key_type_name_atoms: u32[num_types] { name.KeyTypeNames },
+    kt_levels: container {
+        num_levels_per_type: u8[num_types], // xcb-proto: spec says num_kt_levels, but xlib disagrees
+        .pad: pad(4, num_types),
+        kt_level_name_atoms: u32[sum(num_levels_per_type)],
+    } { name.KTLevelNames },
+    indicator_name_atoms: u32[bits(indicators)] { name.IndicatorNames },
+    vmod_name_atoms: u32[bits(vmods)] { name.VirtualModNames },
+    group_name_atoms: u32[bits(group_names)] { name.GroupNames },
+    key_names: utf8(4)[num_keys] { name.KeyNames },
+    key_aliases: KeyAlias[num_key_aliases] { name.KeyAliases },
+    radio_group_name_atoms: u32[num_radio_groups] { name.RGNames },
+};
+
+type GetNamesRequest = container {
+    device_spec: u16,
+    .pad: 2,
+    .pad: 2, // top 2 bytes of `which`
+    which: NameDetail,
+};
+
+// device_id: u8,
+type GetNamesResponse = container {
+    .pad: 2, // top 2 bytes of `which`
+    which: NameDetail,
+    min_keycode: u8,
+    max_keycode: u8,
+    num_types: u8,
+    group_names: SetOfGroup,
+    vmods: VMod,
+    first_key: u8,
+    num_keys: u8,
+    indicators: u32,
+    num_radio_groups: u8,
+    num_key_aliases: u8,
+    num_kt_levels: u16,
+    .pad: 4,
+    values: NameValues(
+        which,
+        num_types,
+        indicators,
+        vmods,
+        group_names,
+        num_keys,
+        num_key_aliases,
+        num_radio_groups,
+    ),
+};
+
+type SetNamesRequest = container {
+    device_spec: u16,
+    vmods: VMod,
+    .pad: 2, // top 2 bytes of `which`
+    which: NameDetail,
+    first_type: u8,
+    num_types: u8,
+    first_kt_level: u8,
+    num_kt_levels: u8,
+    indicators: u32,
+    group_names: SetOfGroup,
+    num_radio_groups: u8,
+    first_key: u8,
+    num_keys: u8,
+    num_key_aliases: u8,
+    .pad: 1,
+    total_kt_level_names: u16,
+    values: NameValues(
+        which,
+        num_types,
+        indicators,
+        vmods,
+        group_names,
+        num_keys,
+        num_key_aliases,
+        num_radio_groups,
+    ),
+};
+
+type GetGeometryRequest = container {
+    device_spec: u16,
+    .pad: 2,
+    name_atom: u32,
+};
+
+// device_id: u8,
+type GetGeometryResponse = container {
+    name_atom: u32,
+    found: bool,
+    .pad: 1,
+    width_mm: u16,
+    height_mm: u16,
+    num_properties: u16 = len(properties) :> u16,
+    num_colors: u16 = len(colors) :> u16,
+    num_shapes: u16 = len(shapes) :> u16,
+    num_sections: u16 = len(sections) :> u16,
+    num_doodads: u16 = len(doodads) :> u16,
+    num_key_aliases: u16 = len(key_aliases) :> u16,
+    base_color_index: u8,
+    label_color_index: u8,
+    label_font: CountedString16,
+    properties: Property[num_properties],
+    colors: CountedString16[num_colors],
+    shapes: Shape[num_shapes],
+    sections: Section[num_sections],
+    doodads: Doodad[num_doodads],
+    key_aliases: KeyAlias[num_key_aliases],
+};
+
+type SetGeometryRequest = container {
+    device_spec: u16,
+    num_shapes: u8 = len(shapes) :> u8,
+    num_sections: u8 = len(sections) :> u8,
+    name_atom: u32,
+    width_mm: u16,
+    height_mm: u16,
+    num_properties: u16 = len(properties) :> u16,
+    num_colors: u16 = len(colors) :> u16,
+    num_doodads: u16 = len(doodads) :> u16,
+    num_key_aliases: u16 = len(key_aliases) :> u16,
+    base_color_index: u8,
+    label_color_index: u8,
+    .pad: 2,
+    label_font: CountedString16,
+    properties: Property[num_properties],
+    colors: CountedString16[num_colors],
+    shapes: Shape[num_shapes],
+    sections: Section[num_sections],
+    doodads: Doodad[num_doodads],
+    key_aliases: KeyAlias[num_key_aliases],
+};
+
+type PerClientFlagsRequest = container {
+    device_spec: u16,
+    .pad: 2,
+    change: PerClientFlag,
+    value: PerClientFlag,
+    controls_to_change: BoolCtrl,
+    auto_controls: BoolCtrl,
+    auto_controls_values: BoolCtrl,
+};
+
+// device_id: u8,
+type PerClientFlagsResponse = container {
+    supported: PerClientFlag,
+    value: PerClientFlag,
+    auto_controls: BoolCtrl,
+    auto_controls_values: BoolCtrl,
+    .pad: 8,
+};
+
+type String8 = container {
+    len: u8 = len(string) :> u8,
+    string: utf8(len),
+};
+
+type ListComponentsRequest = container {
+    device_spec: u16,
+    max_names: u16,
+    keymaps_spec: String8,
+    keycodes_spec: String8,
+    types_spec: String8,
+    compat_map_spec: String8,
+    symbols_spec: String8,
+    geometry_spec: String8,
+};
+
+// device_id: u8,
+type ListComponentsResponse = container {
+    num_keymaps: u16 = len(keymaps) :> u16,
+    num_keycodes: u16 = len(keycodes) :> u16,
+    num_types: u16 = len(types) :> u16,
+    num_compat_maps: u16 = len(compat_maps) :> u16,
+    num_symbols: u16 = len(symbols) :> u16,
+    num_geometries: u16 = len(geometries) :> u16,
+    extra: u16,
+    .pad: 10,
+    keymaps: Listing[num_keymaps],
+    keycodes: Listing[num_keycodes],
+    types: Listing[num_types],
+    compat_maps: Listing[num_compat_maps],
+    symbols: Listing[num_symbols],
+    geometries: Listing[num_geometries],
+};
+
+type GetKbdByNameRequest = container {
+    device_spec: u16,
+    need: GBNDetail,
+    want: GBNDetail,
+    load: bool,
+    .pad: 1,
+    keymaps_spec: String8,
+    keycodes_spec: String8,
+    types_spec: String8,
+    compat_map_spec: String8,
+    symbols_spec: String8,
+    geometry_spec: String8,
+};
+
+// device_id: u8,
+type GetKbdByNameResponse = container {
+    min_keycode: u8,
+    max_keycode: u8,
+    loaded: bool,
+    new_keyboard: bool,
+    found: GBNDetail,
+    reported: GBNDetail,
+    .pad: 16,
+    types: container {
+        .pad: 4,
+        length: u32 = (blen(types) - 24) :> u32 / 4,
+        types: container [length * 4 + 24] {
+            types: GetMapResponse,
+        },
+    } { reported.Types || reported.ClientSymbols || reported.ServerSymbols },
+    compat_map: container {
+        .pad: 4,
+        compat_map_length: u32 = (blen(compat_map) - 24) :> u32 / 4,
+        compat_map: container [compat_map_length * 4 + 24] {
+            compat_map: GetCompatMapResponse,
+        },
+    } { reported.CompatMap },
+    indicator_maps: container {
+        .pad: 4,
+        indicator_maps_length: u32 = (blen(indicator_maps) - 24) :> u32 / 4,
+        indicator_maps: container [indicator_maps_length * 4 + 24] {
+            indicator_maps: GetIndicatorMapResponse,
+        },
+    } { reported.IndicatorMaps },
+    key_names: container {
+        .pad: 4,
+        key_names_length: u32 = (blen(key_names) - 24) :> u32 / 4,
+        key_names: container [key_names_length * 4 + 24] {
+            key_names: GetNamesResponse,
+        },
+    } { reported.KeyNames || reported.OtherNames },
+    geometry: container {
+        .pad: 4,
+        geometry_length: u32 = (blen(geometry) - 24) :> u32 / 4,
+        geometry: container [geometry_length * 4 + 24] {
+            geometry: GetGeometryResponse,
+        },
+    } { reported.Geometry },
+};
+
+type GetDeviceInfoRequest = container {
+    device_spec: u16,
+    wanted: XIFeature,
+    all_buttons: bool,
+    first_button: u8,
+    num_buttons: u8,
+    .pad: 1,
+    led_class: LedClass,
+    led_id: ID,
+};
+
+// device_id: u8,
+type GetDeviceInfoResponse = container {
+    present: XIFeature,
+    supported: XIFeature,
+    unsupported: XIFeature,
+    num_device_led_fbs: u16 = len(leds) :> u16,
+    first_button_wanted: u8,
+    num_buttons_wanted: u8,
+    first_button: u8,
+    num_buttons: u8 = len(button_actions) :> u8,
+    total_buttons: u8,
+    has_own_state: bool,
+    default_keyboard_fb: ID,
+    default_led_fb: ID,
+    .pad: 2,
+    dev_type_atom: u32,
+    name_len: u16 = len(name) :> u16,
+    name: utf8(name_len),
+    .pad: pad(4, name_len + 2),
+    button_actions: Action[num_buttons],
+    leds: DeviceLedInfo[num_device_led_fbs],
+};
+
+type SetDeviceInfoRequest = container {
+    device_spec: u16,
+    first_button: u8,
+    num_buttons: u8 = len(button_actions) :> u8,
+    change: XIFeature,
+    num_device_led_fbs: u16 = len(leds) :> u16,
+    button_actions: Action[num_buttons],
+    leds: DeviceLedInfo[num_device_led_fbs],
+};
+
+type SetDebuggingFlagsRequest = container {
+    msg_length: u16 = len(message) :> u16,
+    .pad: 2,
+    affect_flags: u32,
+    flags: u32,
+    affect_ctrls: u32,
+    ctrls: u32,
+    message: utf8(msg_length),
+};
+
+type SetDebuggingFlagsResponse = container {
+    current_flags: u32,
+    current_ctrls: u32,
+    supported_flags: u32,
+    supported_ctrls: u32,
+    .pad: 8,
+};
+
+// events
+
+type NewKeyboardNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    old_device_id: u8,
+    min_keycode: u8,
+    max_keycode: u8,
+    old_min_keycode: u8,
+    old_max_keycode: u8,
+    request_major: u8,
+    request_minor: u8,
+    changed: NKNDetail,
+    .pad: 14,
+};
+
+type MapNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    pointer_button_actions: u8,
+    changed: MapPart,
+    min_keycode: u8,
+    max_keycode: u8,
+    first_type: u8,
+    num_types: u8,
+    first_key_sym: u8,
+    num_key_syms: u8,
+    first_key_action: u8,
+    num_key_actions: u8,
+    first_key_behavior: u8,
+    num_key_behaviors: u8,
+    first_key_explicit: u8,
+    num_keys_explicit: u8,
+    first_mod_map_key: u8,
+    num_mod_map_keys: u8,
+    first_vmod_map_key: u8,
+    num_vmod_map_keys: u8,
+    vmods: VMod,
+    .pad: 2,
+};
+
+type StateNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    mods: ModMask,
+    base_mods: ModMask,
+    latched_mods: ModMask,
+    locked_mods: ModMask,
+    group: Group,
+    base_group: i16,
+    latched_group: i16,
+    locked_group: Group,
+    compat_state: ModMask,
+    grab_mods: ModMask,
+    compat_grab_mods: ModMask,
+    lookup_mods: ModMask,
+    compat_lookup_mods: ModMask,
+    pointer_button_state: Keybutmask,
+    changed: StatePart,
+    keycode: u8,
+    event_type: u8,
+    request_major: u8,
+    request_minor: u8,
+};
+
+type ControlsNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    num_groups: u8,
+    .pad: 2,
+    changed_controls: Control,
+    enabled_controls: BoolCtrl,
+    enabled_control_changes: BoolCtrl,
+    keycode: u8,
+    event_type: u8,
+    request_major: u8,
+    request_minor: u8,
+    .pad: 4,
+};
+
+type IndicatorStateNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    .pad: 3,
+    state: u32,
+    state_changed: u32,
+    .pad: 12,
+};
+
+type IndicatorMapNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    .pad: 3,
+    state: u32,
+    map_changed: u32,
+    .pad: 12,
+};
+
+type NamesNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    .pad: 1,
+    changed: NameDetail,
+    first_type: u8,
+    num_types: u8,
+    first_level_name: u8,
+    num_level_names: u8,
+    .pad: 1,
+    num_radio_groups: u8,
+    num_key_aliases: u8,
+    changed_group_names: SetOfGroup,
+    changed_vmods: VMod,
+    first_key: u8,
+    num_keys: u8,
+    changed_indicators: u32,
+    .pad: 4,
+};
+
+type CompatMapNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    changed_groups: SetOfGroup,
+    first_si: u16,
+    num_si: u16,
+    num_total_si: u16,
+    .pad: 16,
+};
+
+type BellNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    bell_class: BellClassResult,
+    bell_id: u8,
+    percent: u8,
+    pitch: u16,
+    duration: u16,
+    name_atom: u32,
+    window: u32,
+    event_only: bool,
+    .pad: 7,
+};
+
+type ActionMessageEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    keycode: u8,
+    press: bool,
+    key_event_follows: bool,
+    mods: ModMask,
+    group: Group,
+    message: utf8(8),
+    .pad: 10,
+};
+
+type AccessXNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    keycode: u8,
+    detail: AXNDetail,
+    slow_keys_delay: u16,
+    debounce_delay: u16,
+    .pad: 16,
+};
+
+type ExtensionDeviceNotifyEvent = container {
+    sequence_number: u16,
+    time: u32,
+    device_id: u8,
+    .pad: 1,
+    reason: XIFeature,
+    led_class: LedClassResult,
+    led_id: u16, //todo: spec says u8? xcb-proto disagrees
+    leds_defined: u32,
+    led_state: u32,
+    first_button: u8,
+    num_buttons: u8,
+    supported: XIFeature,
+    unsupported: XIFeature,
+    .pad: 2,
+};
+
+type XKBEvent = container {
+    code: XKBEventType,
+    data: XKBEventData(code),
+};
+
+type XKBEventData(type_: XKBEventType) = container +tagged_enum {
+    NewKeyboardNotify: NewKeyboardNotifyEvent { type_ == XKBEventType::NewKeyboardNotify },
+    MapNotify: MapNotifyEvent { type_ == XKBEventType::MapNotify },
+    StateNotify: StateNotifyEvent { type_ == XKBEventType::StateNotify },
+    ControlsNotify: ControlsNotifyEvent { type_ == XKBEventType::ControlsNotify },
+    IndicatorStateNotify: IndicatorStateNotifyEvent { type_ == XKBEventType::IndicatorStateNotify },
+    IndicatorMapNotify: IndicatorMapNotifyEvent { type_ == XKBEventType::IndicatorMapNotify },
+    NamesNotify: NamesNotifyEvent { type_ == XKBEventType::NamesNotify },
+    CompatMapNotify: CompatMapNotifyEvent { type_ == XKBEventType::CompatMapNotify },
+    BellNotify: BellNotifyEvent { type_ == XKBEventType::BellNotify },
+    ActionMessage: ActionMessageEvent { type_ == XKBEventType::ActionMessage },
+    AccessXNotify: AccessXNotifyEvent { type_ == XKBEventType::AccessXNotify },
+    ExtensionDeviceNotify: ExtensionDeviceNotifyEvent { type_ == XKBEventType::ExtensionDeviceNotify },
+};
+
+// errors
+
+type XKBErrorCode = enum u8 {
+    Keyboard = 0,
+};
+
+// opcodes
+
+type XKBOpcode = enum u8 {
+    UseExtension = 0,
+    SelectEvents,
+    Bell = 3,
+    GetState,
+    LatchLockState,
+    GetControls,
+    SetControls,
+    GetMap,
+    SetMap,
+    GetCompatMap,
+    SetCompatMap,
+    GetIndicatorState,
+    GetIndicatorMap,
+    SetIndicatorMap,
+    GetNamedIndicator,
+    SetNamedIndicator,
+    GetNames,
+    SetNames,
+    GetGeometry,
+    SetGeometry,
+    PerClientFlags,
+    ListComponents,
+    GetKbdByName,
+    GetDeviceInfo,
+    SetDeviceInfo,
+    SetDebuggingFlags = 101,
+};

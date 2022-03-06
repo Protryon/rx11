@@ -9,6 +9,7 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 anyhow = "1"
+futures = "0.3"
 libc = "0.2"
 enum_dispatch = "0.3"
 protospec = "0.2"
@@ -17,9 +18,10 @@ derive_builder = "0.10"
 dashmap = "5.1"
 derivative = "2.2"
 internment = "0.6"
+fixed = "1.13"
 
 [dev-dependencies]
 env_logger = "0.9"
 
 [build-dependencies]
-protospec-build = { version = "0.2", path = "/home/p/git/protospec/protospec-build/" }
+protospec-build = { version = "0.3", path = "/home/p/git/protospec/protospec-build/" }

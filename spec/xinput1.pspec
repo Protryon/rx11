@@ -1,0 +1,1077 @@
+import_ffi utf8 as type;
+import_ffi pad as function;
+import_ffi bits as function;
+import_ffi sum as function;
+
+type GetExtensionVersionRequest = container {
+    name_len: u16 = len(name) :> u16,
+    .pad: 2,
+    name: utf8(name_len),
+};
+
+type GetExtensionVersionResponse = container {
+    // xi_reply_type: u8,
+    server_major: u16,
+    server_minor: u16,
+    present: bool,
+    .pad: 16,
+};
+
+type DeviceUse = enum u8 {
+    IsXPointer = 0,
+    IsXKeyboard,
+    IsXExtensionDevice,
+    IsXExtensionKeyboard,
+    IsXExtensionPointer,
+};
+
+type InputClass = enum u8 {
+    Key = 0,
+    Button,
+    Valuator,
+    Feedback,
+    Proximity,
+    Focus,
+    Other,
+};
+
+type ValuatorMode = enum u8 {
+    Relative = 0,
+    Absolute,
+};
+
+type DeviceInfo = container {
+    device_type_atom: u32,
+    device_id: u8,
+    num_class_info: u8,
+    device_use: DeviceUse,
+    .pad: 1,
+};
+
+type AxisInfo = container {
+    resolution: u32,
+    minimum: i32,
+    maximum: i32,
+};
+
+type InputInfoData(class: InputClass) = container +tagged_enum {
+    Key: container {
+        min_keycode: u8,
+        max_keycode: u8,
+        num_keys: u16,
+        .pad: 2,
+    } { class == InputClass::Key },
+    Button: container {
+        num_buttons: u16,
+    } { class == InputClass::Button },
+    Valuator: container {
+        axes_len: u8 = len(axes) :> u8,
+        mode: ValuatorMode,
+        motion_size: u32,
+        axes: AxisInfo[axes_len],
+    } { class == InputClass::Valuator },
+};
+
+type InputInfo = container {
+    class: InputClass,
+    len: u8 = blen(data) :> u8 + 2,
+    // there is an alignment barrier here, but it shouldn't ever trigger
+    data: container [len - 2] {
+        data: InputInfoData(class),
+    }
+};
+
+type DeviceName = container {
+    len: u8 = len(string) :> u8,
+    string: utf8(len),
+};
+
+type String8 = container {
+    len: u8 = len(string) :> u8,
+    string: utf8(len),
+};
+
+type ListInputDevicesRequest = container {
+
+};
+
+type ListInputDevicesResponse = container {
+    // xi_reply_type: u8,
+    devices_len: u8 = len(devices) :> u8,
+    .pad: 23,
+    devices: DeviceInfo[devices_len],
+    //todo: semantics here
+    add: u8[..],
+};
+
+type ListInputDevicesResponseAdd(info_count: u64, devices_len: u64) = container {
+    infos: InputInfo[info_count], // sum(devices.num_class_info)
+    names: String8[devices_len],
+};
+
+type InputClassInfo = container {
+    class: InputClass,
+    event_type_base: u8,
+};
+
+type OpenDeviceRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type OpenDeviceResponse = container {
+    // xi_reply_type: u8,
+    num_classes: u8 = len(classes) :> u8,
+    .pad: 23,
+    classes: InputClassInfo[num_classes],
+};
+
+type CloseDeviceRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+//copied from x11.pspec
+type GrabStatus = enum u8 {
+    Success = 0,
+    AlreadyGrabbed,
+    InvalidTime,
+    NotViewable,
+    Frozen,
+};
+
+type SetDeviceModeRequest = container {
+    device_id: u8,
+    mode: ValuatorMode,
+    .pad: 2,
+};
+
+type SetDeviceModeResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type SelectExtensionEventRequest = container {
+    window: u32,
+    num_classes: u16 = len(event_classes) :> u16,
+    .pad: 2,
+    event_classes: u32[num_classes],
+};
+
+type GetSelectedExtensionEventsRequest = container {
+    window: u32,
+};
+
+type GetSelectedExtensionEventsResponse = container {
+    // xi_reply_type: u8,
+    num_this_classes: u16 = len(this_event_classes) :> u16,
+    num_all_classes: u16 = len(all_event_classes) :> u16,
+    .pad: 20,
+    this_event_classes: u32[num_this_classes],
+    all_event_classes: u32[num_all_classes],
+};
+
+type PropagateMode = enum u8 {
+    AddToList = 0,
+    DeleteFromList,
+};
+
+type ChangeDeviceDontPropagateListRequest = container {
+    window: u32,
+    num_classes: u16 = len(event_classes) :> u16,
+    mode: PropagateMode,
+    .pad: 1,
+    event_classes: u32[num_classes],
+};
+
+type GetDeviceDontPropagateListRequest = container {
+    window: u32,
+};
+
+type GetDeviceDontPropagateListRequestResponse = container {
+    // xi_reply_type: u8,
+    num_classes: u16 = len(event_classes) :> u16,
+    .pad: 22,
+    event_classes: u32[num_classes],
+};
+
+type DeviceTimeCoord(num_axes: u64) = container {
+    time: u32,
+    values: i32[num_axes],
+};
+
+type GetDeviceMotionEventsRequest = container {
+    start_time: u32,
+    stop_time: u32, // 0 for Now
+    device_id: u8,
+    .pad: 3,
+};
+
+type GetDeviceMotionEventsResponse = container {
+    // xi_reply_type: u8,
+    num_events: u32,
+    num_axes: u8,
+    device_mode: ValuatorMode,
+    .pad: 18,
+    events: DeviceTimeCoord(num_axes)[num_events],
+};
+
+type ChangeKeyboardDeviceRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type ChangeKeyboardDeviceResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type ChangePointerDeviceRequest = container {
+    x_axis: u8,
+    y_axis: u8,
+    device_id: u8,
+    .pad: 1,
+};
+
+type ChangePointerDeviceResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type GrabMode = enum u8 {
+    Sync = 0,
+    Async,
+};
+
+type GrabDeviceRequest = container {
+    grab_window: u32,
+    time: u32, // 0 for Now
+    num_classes: u16 = len(event_classes) :> u16,
+    this_device_mode: GrabMode,
+    other_device_mode: GrabMode,
+    owner_events: bool,
+    device_id: u8,
+    .pad: 2,
+    event_classes: u32[num_classes],
+};
+
+type GrabDeviceResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type UngrabDeviceRequest = container {
+    time: u32, // 0 for Now
+    device_id: u8,
+    .pad: 3,
+};
+
+// from x11.pspec
+type ModMask = bitfield u16 {
+    Shift = 0x01,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+    AnyModifier = 0x8000,
+};
+
+type GrabDeviceKeyRequest = container {
+    grab_window: u32,
+    num_classes: u16 = len(event_classes) :> u16,
+    modifiers: ModMask,
+    modifier_device: u8, // 255 for UseXKeyboard
+    grabbed_device: u8,
+    key: u8, // 255 for Any
+    this_device_mode: GrabMode,
+    other_device_mode: GrabMode,
+    owner_events: bool,
+    .pad: 2,
+    event_classes: u32[num_classes],
+};
+
+type UngrabDeviceKeyRequest = container {
+    grab_window: u32,
+    modifiers: ModMask,
+    modifier_device: u8, // 255 for UseXKeyboard
+    key: u8, // 255 for Any
+    grabbed_device: u8,
+};
+
+type GrabDeviceButtonRequest = container {
+    grab_window: u32,
+    grabbed_device: u8,
+    modifier_device: u8, // 255 for UseXKeyboard
+    num_classes: u16 = len(event_classes) :> u16,
+    modifiers: ModMask,
+    this_device_mode: GrabMode,
+    other_device_mode: GrabMode,
+    button: u8, // 255 for Any
+    owner_events: bool,
+    .pad: 2,
+    event_classes: u32[num_classes],
+};
+
+type UngrabDeviceButtonRequest = container {
+    grab_window: u32,
+    modifiers: ModMask,
+    modifier_device: u8, // 255 for UseXKeyboard
+    button: u8, // 255 for Any
+    grabbed_device: u8,
+};
+
+type DeviceInputMode = enum u8 {
+    AsyncThisDevice = 0,
+    SyncThisDevice,
+    ReplayThisDevice,
+    AsyncOtherDevices,
+    AsyncAll,
+    SyncAll,
+};
+
+type AllowDeviceEventsRequest = container {
+    time: u32, // 0 for Now
+    mode: DeviceInputMode,
+    device_id: u8,
+    .pad: 2,
+};
+
+type RevertToFocus = enum u8 {
+    None = 0,
+    PointerRoot,
+    Parent,
+    FollowKeyboard,
+};
+
+type GetDeviceFocusRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type GetDeviceFocusResponse = container {
+    // xi_reply_type: u8,
+    focus_window: u32, // 0 for None, 1 for PointerRoot, 2 for Parent, 3 for FollowKeyboard
+    time: u32,
+    revert_to: u8,
+    .pad: 15,
+};
+
+type SetDeviceFocusRequest = container {
+    focus_window: u32, // 0 for None, 1 for PointerRoot, 2 for Parent, 3 for FollowKeyboard
+    time: u32,
+    revert_to: u8,
+    device_id: u8,
+    .pad: 2,
+};
+
+type FeedbackClass = enum u8 {
+    Keyboard = 0,
+    Pointer,
+    String,
+    Integer,
+    Led,
+    Bell,
+};
+
+type FeedbackStateData(class: FeedbackClass) = container +tagged_enum {
+    Keyboard: container {
+        bell_pitch: u16,
+        bell_duration: u16,
+        led_mask: u32,
+        led_values: u32,
+        global_auto_repeat: bool,
+        click: u8,
+        bell_percent: u8,
+        .pad: 1,
+        auto_repeats: u8[32],
+    } { class == FeedbackClass::Keyboard },
+    Pointer: container {
+        .pad: 2,
+        accel_numerator: u16,
+        accel_denominator: u16,
+        threshold: u16,
+    } { class == FeedbackClass::Pointer },
+    Integer: container {
+        resolution: u32,
+        min_value: i32,
+        max_value: i32,
+    } { class == FeedbackClass::Integer },
+    String: container {
+        max_symbols: u16,
+        num_keysyms: u16 = len(keysyms) :> u16,
+        keysyms: u32[num_keysyms],
+    } { class == FeedbackClass::String },
+    Bell: container {
+        percent: u8,
+        .pad: 3,
+        pitch: u16,
+        duration: u16,
+    } { class == FeedbackClass::Bell },
+    Led: container {
+        led_mask: u32,
+        led_values: u32,
+    } { class == FeedbackClass::Led },
+};
+
+type FeedbackState = container {
+    class: FeedbackClass,
+    len: u16 = blen(data) :> u16 + 4,
+    feedback_id: u8,
+    data: container [len - 4] {
+        data: FeedbackStateData(class),
+    },
+};
+
+type GetFeedbackControlRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type GetFeedbackControlResponse = container {
+    // xi_reply_type: u8,
+    num_feedbacks: u16 = len(feedbacks) :> u16,
+    .pad: 22,
+    feedbacks: FeedbackState[num_feedbacks],
+};
+
+type FeedbackControlData(class: FeedbackClass) = container +tagged_enum {
+    Keyboard: container {
+        key: u8,
+        auto_repeat_mode: bool,
+        key_click_percent: i8,
+        bell_percent: i8,
+        bell_pitch: i16,
+        bell_duration: i16,
+        led_mask: u32,
+        led_values: u32,
+    } { class == FeedbackClass::Keyboard },
+    Pointer: container {
+        .pad: 2,
+        accel_numerator: u16,
+        accel_denominator: u16,
+        threshold: u16,
+    } { class == FeedbackClass::Pointer },
+    Integer: container {
+        int_to_display: i32,
+    } { class == FeedbackClass::Integer },
+    String: container {
+        .pad: 2,
+        num_keysyms: u16 = len(keysyms) :> u16,
+        keysyms: u32[num_keysyms],
+    } { class == FeedbackClass::String },
+    Bell: container {
+        percent: i8,
+        .pad: 3,
+        pitch: i16,
+        duration: i16,
+    } { class == FeedbackClass::Bell },
+    Led: container {
+        led_mask: u32,
+        led_values: u32,
+    } { class == FeedbackClass::Led },
+};
+
+type FeedbackControl = container {
+    class: FeedbackClass,
+    len: u16 = blen(data) :> u16 + 4,
+    feedback_id: u8,
+    data: container [len - 4] {
+        data: FeedbackControlData(class),
+    },
+};
+
+type ChangeFeedbackControlMask = bitfield u8 {
+    KeyClickPercent = 0x1,
+    Percent,
+    Pitch,
+    Duration,
+    Led,
+    LedMode,
+    Key,
+    AutoRepeatMode,
+    String = 0x1,
+    Integer = 0x1,
+    AccelNum = 0x1,
+    AccelDenom,
+    Threshold,
+};
+
+type ChangeFeedbackControlRequest = container {
+    mask: ChangeFeedbackControlMask,
+    device_id: u8,
+    feedback_id: u8,
+    .pad: 2,
+    feedback_control: FeedbackControl,
+};
+
+type GetDeviceKeyMappingRequest = container {
+    device_id: u8,
+    first_keycode: u8,
+    count: u8,
+    .pad: 1,
+};
+
+type GetDeviceKeyMappingResponse = container {
+    // xi_reply_type: u8,
+    keysyms_per_keycode: u8,
+    .pad: 23,
+    keysyms: u32[..],
+};
+
+type ChangeDeviceKeyMappingRequest = container {
+    device_id: u8,
+    first_keycode: u8,
+    keysyms_per_keycode: u8,
+    keycode_count: u8,
+    keysyms: u32[keycode_count :> u64 * keysyms_per_keycode :> u64],
+};
+
+type GetDeviceModifierMappingRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type GetDeviceModifierMappingResponse = container {
+    // xi_reply_type: u8,
+    keycodes_per_modifier: u8 = (len(keymaps) / 8) :> u8,
+    .pad: 23,
+    keymaps: u8[keycodes_per_modifier :> u64 * 8],
+};
+
+type SetDeviceModifierMappingRequest = container {
+    device_id: u8,
+    keycodes_per_modifier: u8 = (len(keymaps) / 8) :> u8,
+    .pad: 2,
+    keymaps: u8[keycodes_per_modifier :> u64 * 8],
+};
+
+type MappingStatus = enum u8 {
+    Success = 0,
+    Busy = 1,
+    Failed = 2,
+};
+
+type SetDeviceModifierMappingResponse = container {
+    // xi_reply_type: u8,
+    status: MappingStatus,
+    .pad: 23,
+};
+
+type GetDeviceButtonMappingRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type GetDeviceButtonMappingResponse = container {
+    // xi_reply_type: u8,
+    map_size: u8 = len(map) :> u8,
+    .pad: 23,
+    map: u8[map_size],
+    .pad: pad(4, map_size),
+};
+
+type SetDeviceButtonMappingRequest = container {
+    device_id: u8,
+    map_size: u8 = len(map) :> u8,
+    .pad: 2,
+    map: u8[map_size],
+};
+
+type SetDeviceButtonMappingResponse = container {
+    // xi_reply_type: u8,
+    status: MappingStatus,
+    .pad: 23,
+};
+
+type ValuatorStateModeMask = bitfield u8 {
+    DeviceModeAbsolute = 0x1,
+    OutOfProximity,
+};
+
+type InputStateData(class: InputClass) = container +tagged_enum {
+    Key: container {
+        num_keys: u8 = len(keys) :> u8,
+        .pad: 1,
+        keys: u8[32],
+    } { class == InputClass::Key },
+    Button: container {
+        num_buttons: u8 = len(buttons) :> u8,
+        .pad: 1,
+        buttons: u8[32],
+    } { class == InputClass::Button },
+    Valuator: container {
+        num_valuators: u8 = len(valuators) :> u8,
+        mode: ValuatorStateModeMask,
+        valuators: i32[num_valuators],
+    } { class == InputClass::Valuator },
+};
+
+type InputState = container {
+    class: InputClass,
+    len: u8 = blen(data) :> u8 + 2,
+    data: container [len - 2] {
+        data: InputStateData(class),
+    }
+};
+
+type QueryDeviceStateRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type QueryDeviceStateResponse = container {
+    // xi_reply_type: u8,
+    num_classes: u8 = len(classes) :> u8,
+    .pad: 23,
+    classes: InputState[num_classes],
+};
+
+type SendExtensionEventRequest = container {
+    destination_window: u32,
+    device_id: u8,
+    propagate: bool,
+    num_classes: u16 = len(event_classes) :> u16,
+    num_events: u8 = len(events) :> u8,
+    .pad: 3,
+    events: u8[32][num_events],
+    event_classes: u32[num_classes],
+};
+
+type DeviceBellRequest = container {
+    device_id: u8,
+    feedback_id: u8,
+    class: FeedbackClass,
+    percent: i8,
+};
+
+type SetDeviceValuatorsRequest = container {
+    device_id: u8,
+    first_valuator: u8,
+    num_valuators: u8 = len(valuators) :> u8,
+    .pad: 1,
+    valuators: i32[num_valuators],
+};
+
+type SetDeviceValuatorsResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type DeviceControl = enum u16 {
+    Resolution = 1,
+    AbsoluteCalibration,
+    Core,
+    Enable,
+    AbsoluteArea,
+};
+
+type DeviceState(control: DeviceControl) = container +tagged_enum {
+    Resolution: container {
+        num_valuators: u32 = len(resolution_values) :> u32,
+        resolution_values: u32[num_valuators],
+        resolution_min: u32[num_valuators],
+        resolution_max: u32[num_valuators],
+    } { control == DeviceControl::Resolution },
+    AbsoluteCalibration: container {
+        min_x: i32,
+        max_x: i32,
+        min_y: i32,
+        max_y: i32,
+        flip_x: u32,
+        flip_y: u32,
+        rotation: u32,
+        button_threshold: u32,
+    } { control == DeviceControl::AbsoluteCalibration },
+    Core: container {
+        status: u8,
+        iscore: u8,
+        .pad: 2,
+    } { control == DeviceControl::Core },
+    Enable: container {
+        enable: u8,
+        .pad: 3,
+    } { control == DeviceControl::Enable },
+    AbsoluteArea: container {
+        offset_x: u32,
+        offset_y: u32,
+        width: u32,
+        height: u32,
+        screen: u32,
+        following: u32,
+    } { control == DeviceControl::AbsoluteArea },   
+};
+
+type GetDeviceControlRequest = container {
+    control: DeviceControl,
+    device_id: u8,
+    .pad: 1,
+};
+
+type GetDeviceControlResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+    control: DeviceControl,
+    len: u16 = blen(data) :> u16 + 3,
+    data: container [len - 3] {
+        data: DeviceState(control),
+    },
+};
+
+type ChangeDeviceData(control: DeviceControl) = container +tagged_enum {
+    Resolution: container {
+        first_valuator: u8,
+        num_valuators: u8 = len(resolution_values) :> u8,
+        .pad: 2,
+        resolution_values: u32[num_valuators],
+    } { control == DeviceControl::Resolution },
+    AbsoluteCalibration: container {
+        min_x: i32,
+        max_x: i32,
+        min_y: i32,
+        max_y: i32,
+        flip_x: u32,
+        flip_y: u32,
+        rotation: u32,
+        button_threshold: u32,
+    } { control == DeviceControl::AbsoluteCalibration },
+    Core: container {
+        status: u8,
+        .pad: 3,
+    } { control == DeviceControl::Core },
+    Enable: container {
+        enable: u8,
+        .pad: 3,
+    } { control == DeviceControl::Enable },
+    AbsoluteArea: container {
+        offset_x: u32,
+        offset_y: u32,
+        width: i32,
+        height: i32,
+        screen: i32,
+        following: u32,
+    } { control == DeviceControl::AbsoluteArea },   
+};
+
+type ChangeDeviceControlRequest = container {
+    control: DeviceControl,
+    device_id: u8,
+    .pad: 1,
+    change: ChangeDeviceData(control),
+};
+
+type ChangeDeviceControlResponse = container {
+    // xi_reply_type: u8,
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type ListDevicePropertiesRequest = container {
+    device_id: u8,
+    .pad: 3,
+};
+
+type ListDevicePropertiesResponse = container {
+    // xi_reply_type: u8,
+    num_atoms: u16 = len(atoms) :> u16,
+    .pad: 22,
+    atoms: u32[num_atoms],
+};
+
+type PropertyFormat = enum u8 {
+    L8 = 8,
+    L16 = 16,
+    L32 = 32,
+};
+
+type ChangePropertyMode = enum u8 {
+    Replace = 0,
+    Prepend,
+    Append,
+};
+
+type PropertyValue(format: PropertyFormat) = container +tagged_enum {
+    Items8: container {
+        num_items: u32 = len(items_8) :> u32,
+        items_8: u8[num_items],
+        .pad: pad(4, num_items),
+    } { format == PropertyFormat::L8 },
+    Items16: container {
+        num_items: u32 = len(items_16) :> u32,
+        items_16: u16[num_items],
+        .pad: pad(4, num_items * 2),
+    } { format == PropertyFormat::L16 },
+    Items32: container {
+        num_items: u32 = len(items_32) :> u32,
+        items_32: u32[num_items],
+    } { format == PropertyFormat::L32 },
+};
+
+type ChangeDevicePropertyRequest = container {
+    property_atom: u32,
+    type_atom: u32,
+    format: PropertyFormat,
+    mode: ChangePropertyMode,
+    .pad: 1,
+    value: PropertyValue(format),
+};
+
+type DeleteDevicePropertyRequest = container {
+    property_atom: u32,
+    device_id: u8,
+    .pad: 3,
+};
+
+type GetDevicePropertyRequest = container {
+    property_atom: u32,
+    type_atom: u32,
+    offset: u32,
+    len: u32,
+    device_id: u8,
+    delete: bool,
+    .pad: 2,
+};
+
+type GetDevicePropertyResponse = container {
+    // xi_reply_type: u8,
+    type_atom: u32,
+    bytes_after: u32,
+    num_items: u32, //todo: calculate
+    format: PropertyFormat,
+    device_id: u8,
+    .pad: 10,
+    items_8: container {
+        items_8: u8[num_items],
+        .pad: pad(4, num_items),
+    } { format == PropertyFormat::L8 },
+    items_16: container {
+        items_16: u16[num_items],
+        .pad: pad(4, num_items * 2),
+    } { format == PropertyFormat::L16 },
+    items_32: container {
+        items_32: u32[num_items],
+    } { format == PropertyFormat::L32 },
+};
+
+type GroupInfo = container {
+    base: u8,
+    latched: u8,
+    locked: u8,
+    effective: u8,
+};
+
+type ModifierInfo = container {
+    base: u32,
+    latched: u32,
+    locked: u32,
+    effective: u32,
+};
+
+// events
+
+type DeviceValuatorEvent = container {
+    device_id: u8,
+    device_state: u16,
+    num_valuators: u8,
+    first_valuator: u8,
+    valuators: i32[6],
+};
+
+// copied from x11.pspec
+type Keybutmask = bitfield u16 {
+    Shift = 0x01,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+    Button1,
+    Button2,
+    Button3,
+    Button4,
+    Button5,
+};
+
+type DeviceKeyEvent = container {
+    detail: u8,
+    time: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32, // 0 for None, 1 for PointerRoot, 2 for Parent, 3 for FollowKeyboard
+    root_x: i16,
+    root_y: i16,
+    event_x: i16,
+    event_y: i16,
+    state: Keybutmask,
+    same_screen: bool,
+    device_id: u8, // | 0x80 for MoreEvents
+};
+
+// copied from x11.pspec
+type NotifyDetail = enum u8 {
+    Ancestor = 0,
+    Virtual,
+    Inferior,
+    Nonlinear,
+    NonlinearVirtual,
+};
+
+// copied from x11.pspec
+type NotifyMode = enum u8 {
+    Normal = 0,
+    Grab,
+    Ungrab,
+};
+
+type DeviceFocusInEvent = container {
+    detail: NotifyDetail,
+    time: u32,
+    window: u32,
+    mode: NotifyMode,
+    device_id: u8,
+    .pad: 18,
+};
+
+type ClassesReportedMask = bitfield u8 {
+    ReportingKeys = 0x1,
+    ReportingButtons,
+    ReportingValuators,
+    DeviceModeAbsolute = 1 << 6,
+    OutOfProximity,
+};
+
+type DeviceStateNotifyEvent = container {
+    device_id: u8, // | 0x80 for MoreEvents
+    time: u32,
+    num_keys: u8 = len(buttons) :> u8,
+    num_buttons: u8 = len(keys) :> u8,
+    num_valuators: u8 = len(valuators) :> u8,
+    classes_reported: ClassesReportedMask,
+    buttons: u8[4],
+    keys: u8[4],
+    valuators: u32[3],
+};
+
+// copied from x11.pspec
+type Mapping = enum u8 {
+    Modifier = 0,
+    Keyboard,
+    Pointer,
+};
+
+type DeviceMappingNotifyEvent = container {
+    device_id: u8,
+    request: Mapping,
+    first_keycode: u8,
+    count: u8,
+    .pad: 1,
+    time: u32,
+    .pad: 20,
+};
+
+type ChangeDevice = enum u8 {
+    NewPointer = 0,
+    NewKeyboard,
+};
+
+type ChangeDeviceNotifyEvent = container {
+    device_id: u8,
+    time: u32,
+    request: ChangeDevice,
+    .pad: 23,
+};
+
+type DeviceKeyStateNotifyEvent = container {
+    device_id: u8, // | 0x80 for MoreEvents
+    keys: u8[28],
+};
+
+type DeviceButtonStateNotifyEvent = container {
+    device_id: u8, // | 0x80 for MoreEvents
+    buttons: u8[28],
+};
+
+type DeviceChange = enum u8 {
+    Added = 0,
+    Removed,
+    Enabled,
+    Disabled,
+    Unrecoverable,
+    ControlChanged,
+};
+
+type DevicePresenceNotifyEvent = container {
+    .pad: 1,
+    time: u32,
+    device_change: DeviceChange,
+    device_id: u8,
+    control: u16,
+    .pad: 20,
+};
+
+type Property = enum u8 {
+    NewValue = 0,
+    Delete,
+};
+
+type DevicePropertyNotifyEvent = container {
+    state: Property,
+    time: u32,
+    property_atom: u32,
+    .pad: 19,
+    device_id: u8,
+};
+
+// opcodes
+
+type XI1Opcode = enum u8 {
+    GetExtensionVersion = 1,
+    ListInputDevices,
+    OpenDevice,
+    CloseDevice,
+    SetDeviceMode,
+    SelectExtensionEvent,
+    GetSelectedExtensionEvents,
+    ChangeDeviceDontPropagateList,
+    GetDeviceDontPropagateList,
+    GetDeviceMotionEvents,
+    ChangeKeyboardDevice,
+    ChangePointerDevice,
+    GrabDevice,
+    UngrabDevice,
+    GrabDeviceKey,
+    UngrabDeviceKey,
+    GrabDeviceButton,
+    UngrabDeviceButton,
+    AllowDeviceEvents,
+    GetDeviceFocus,
+    SetDeviceFocus,
+    GetFeedbackControl,
+    ChangeFeedbackControl,
+    GetDeviceKeyMapping,
+    ChangeDeviceKeyMapping,
+    GetDeviceModifierMapping,
+    SetDeviceModifierMapping,
+    GetDeviceButtonMapping,
+    SetDeviceButtonMapping,
+    QueryDeviceState,
+    SendExtensionEvent,
+    DeviceBell,
+    SetDeviceValuators,
+    GetDeviceControl,
+    ChangeDeviceControl,
+    ListDeviceProperties,
+    ChangeDeviceProperty,
+    DeleteDeviceProperty,
+    GetDeviceProperty,
+};

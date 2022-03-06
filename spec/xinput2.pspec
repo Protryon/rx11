@@ -1,0 +1,890 @@
+import_ffi utf8 as type;
+import_ffi pad as function;
+import_ffi bits as function;
+import_ffi sum as function;
+
+type DeviceId = enum u16 {
+    All = 0,
+    AllMaster = 1,
+    Device = default,
+};
+
+type Fp1616 = container {
+    integral: i16,
+    frac: u16,
+};
+
+type Fp3232 = container {
+    integral: i32,
+    frac: u32,
+};
+
+type ValuatorMode = enum u8 {
+    Relative = 0,
+    Absolute,
+};
+
+type ChangePropertyMode = enum u8 {
+    Replace = 0,
+    Prepend,
+    Append,
+};
+
+type PropertyFormat = enum u8 {
+    L8 = 8,
+    L16 = 16,
+    L32 = 32,
+};
+
+type PropertyValue(format: PropertyFormat) = container +tagged_enum {
+    Items8: container {
+        num_items: u32 = len(items_8) :> u32,
+        items_8: u8[num_items],
+        .pad: pad(4, num_items),
+    } { format == PropertyFormat::L8 },
+    Items16: container {
+        num_items: u32 = len(items_16) :> u32,
+        items_16: u16[num_items],
+        .pad: pad(4, num_items * 2),
+    } { format == PropertyFormat::L16 },
+    Items32: container {
+        num_items: u32 = len(items_32) :> u32,
+        items_32: u32[num_items],
+    } { format == PropertyFormat::L32 },
+};
+
+type GroupInfo = container {
+    base: u8,
+    latched: u8,
+    locked: u8,
+    effective: u8,
+};
+
+type ModifierInfo = container {
+    base: u32,
+    latched: u32,
+    locked: u32,
+    effective: u32,
+};
+
+type XIQueryPointerRequest = container {
+    window: u32,
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIQueryPointerResponse = container {
+    root_window: u32,
+    child_window: u32,
+    root_x: Fp1616,
+    root_y: Fp1616,
+    win_x: Fp1616,
+    win_y: Fp1616,
+    same_screen: bool,
+    .pad: 1,
+    buttons_len: u16 = len(buttons) :> u16,
+    mods: ModifierInfo,
+    groups: GroupInfo,
+    buttons: u32[buttons_len],
+};
+
+type XIWarpPointerRequest = container {
+    src_window: u32,
+    dst_window: u32,
+    src_x: Fp1616,
+    src_y: Fp1616,
+    src_width: u16,
+    src_height: u16,
+    dst_x: Fp1616,
+    dst_y: Fp1616,
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIChangeCursorRequest = container {
+    window: u32,
+    cursor: u32,
+    device: DeviceId,
+    .pad: 2,
+};
+
+type HierarchyChangeType = enum u16 {
+    AddMaster = 1,
+    RemoveMaster,
+    AttachSlave,
+    DetachSlave,
+};
+
+type ChangeMode = enum u8 {
+    Attach = 1,
+    Float,
+};
+
+type HierarchyChangeData(type_: HierarchyChangeType) = container +tagged_enum {
+    AddMaster: container {
+        name_len: u16 = len(name) :> u16,
+        send_core: bool,
+        enable: bool,
+        name: utf8(name_len),
+        .pad: pad(4, name_len),
+    } { type_ == HierarchyChangeType::AddMaster },
+    RemoveMaster: container {
+        device: DeviceId,
+        return_mode: ChangeMode,
+        .pad: 1,
+        return_pointer_device: DeviceId,
+        return_keyboard_device: DeviceId,
+    } { type_ == HierarchyChangeType::RemoveMaster },
+    AttachSlave: container {
+        device: DeviceId,
+        master_device: DeviceId,
+    } { type_ == HierarchyChangeType::AttachSlave },
+    DetachSlave: container {
+        device: DeviceId,
+        .pad: 2,
+    } { type_ == HierarchyChangeType::DetachSlave },
+};
+
+type HierarchyChange = container {
+    type_: HierarchyChangeType,
+    len: u16 = blen(data) :> u16 / 4,
+    data: container [len * 4] {
+        data: HierarchyChangeData(type_),
+    },
+};
+
+type XIChangeHierarchyRequest = container {
+    num_changes: u8 = len(changes) :> u8,
+    .pad: 3,
+    changes: HierarchyChange[num_changes],
+};
+
+type XISetClientPointerRequest = container {
+    window: u32,
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIGetClientPointerRequest = container {
+    window: u32,
+};
+
+type XIGetClientPointerResponse = container {
+    set: bool,
+    .pad: 1,
+    device: DeviceId,
+    .pad: 20,
+};
+
+type XIEventMask = bitfield u32le {
+    DeviceChanged = 0x2,
+    KeyPress,
+    KeyRelease,
+    ButtonPress,
+    ButtonRelease,
+    Motion,
+    Enter,
+    Leave,
+    FocusIn,
+    FocusOut,
+    Hierarchy,
+    Property,
+
+    RawKeyPress,
+    RawKeyRelease,
+    RawButtonPress,
+    RawButtonRelease,
+    RawMotion,
+
+    TouchBegin,
+    TouchUpdate,
+    TouchEnd,
+    TouchOwnership,
+    RawTouchBegin,
+    RawTouchUpdate,
+    RawTouchEnd,
+
+    BarrierHit,
+    BarrierLeave,
+};
+
+type XIEventMasks = container {
+    device: DeviceId,
+    mask_num: u16 = len(masks) :> u16,
+    masks: XIEventMask[mask_num],
+};
+
+type XISelectEventsRequest = container {
+    window: u32,
+    mask_num: u16 = len(masks) :> u16,
+    .pad: 2,
+    masks: XIEventMasks[mask_num],
+};
+
+type XIQueryVersionRequest = container {
+    major_version: u16,
+    minor_version: u16,
+};
+
+type XIQueryVersionResponse = container {
+    major_version: u16,
+    minor_version: u16,
+    .pad: 20,
+};
+
+type DeviceClassType = enum u16 {
+    Key = 0,
+    Button,
+    Valuator,
+    Scroll,
+    Touch,
+    Unknown = default,
+};
+
+type DeviceType = enum u16 {
+    MasterPointer = 1,
+    MasterKeyboard,
+    SlavePointer,
+    SlaveKeyboard,
+    FloatingSlave,
+};
+
+type ScrollFlags = bitfield u32 {
+    NoEmulation = 0x1,
+    Preferred,
+};
+
+type ScrollType = enum u16 {
+    Vertical = 1,
+    Horizontal,
+};
+
+type TouchMode = enum u8 {
+    Direct = 1,
+    Dependent,
+};
+
+type DeviceClassData(class: DeviceClassType) = container +tagged_enum {
+    Key: container {
+        num_keys: u16 = len(keys) :> u16,
+        keys: u32[num_keys],
+    } { class == DeviceClassType::Key },
+    Button: container {
+        num_buttons: u16 = len(label_atoms) :> u16,
+        state: u32[(num_buttons + 31) / 32],
+        label_atoms: u32[num_buttons],
+    } { class == DeviceClassType::Button },
+    Valuator: container {
+        number: u16,
+        label_atom: u32,
+        min: Fp3232,
+        max: Fp3232,
+        value: Fp3232,
+        resolution: u32,
+        mode: ValuatorMode,
+        .pad: 3
+    } { class == DeviceClassType::Valuator },
+    Scroll: container {
+        number: u16,
+        scroll_type: ScrollType,
+        .pad: 2,
+        flags: ScrollFlags,
+        increment: Fp3232,
+    } { class == DeviceClassType::Scroll },
+    Touch: container {
+        mode: TouchMode,
+        num_touches: u8,
+    } { class == DeviceClassType::Touch },
+    Unknown: u8[..],
+};
+
+type DeviceClass = container {
+    type_: DeviceClassType,
+    len: u16 = blen(data) :> u16 / 4,
+    source_device: DeviceId,
+    data: container [len * 4] {
+        data: DeviceClassData(type_),
+    },
+};
+
+type XIDeviceInfo = container {
+    device: DeviceId,
+    type_: DeviceType,
+    attachment_device: DeviceId,
+    num_classes: u16 = len(classes) :> u16,
+    name_len: u16 = len(name) :> u16,
+    enabled: bool,
+    .pad: 1,
+    name: utf8(name_len),
+    .pad: pad(4, name_len),
+    classes: DeviceClass[num_classes],
+};
+
+type XIQueryDeviceRequest = container {
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIQueryDeviceResponse = container {
+    num_infos: u16 = len(infos) :> u16,
+    .pad: 22,
+    infos: XIDeviceInfo[num_infos],
+};
+
+type XISetFocusRequest = container {
+    window: u32,
+    time: u32, // 0 for Now
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIGetFocusRequest = container {
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIGetFocusResponse = container {
+    focus_window: u32,
+    .pad: 20,
+};
+
+//copied from x11.pspec
+type GrabStatus = enum u8 {
+    Success = 0,
+    AlreadyGrabbed,
+    InvalidTime,
+    NotViewable,
+    Frozen,
+};
+
+type XIGrabDeviceRequest = container {
+    window: u32,
+    time: u32, // 0 for Now
+    cursor: u32,
+    device: DeviceId,
+    mode: GrabMode,
+    paired_device_mode: GrabMode,
+    owner_events: bool,
+    .pad: 1,
+    mask_num: u16 = len(masks) :> u16,
+    masks: u32[mask_num],
+};
+
+type XIGrabDeviceResponse = container {
+    status: GrabStatus,
+    .pad: 23,
+};
+
+type XIUngrabDeviceRequest = container {
+    time: u32, // 0 for Now
+    device: DeviceId,
+    .pad: 2,
+};
+
+type EventMode = enum u8 {
+    AsyncDevice = 0,
+    SyncDevice,
+    ReplayDevice,
+    AsyncPairedDevice,
+    AsyncPair,
+    SyncPair,
+    AcceptTouch,
+    RejectTouch,
+};
+
+type XIAllowEventsRequest = container {
+    time: u32, // 0 for Now
+    device: DeviceId,
+    event_mode: EventMode,
+    .pad: 1,
+    touch_id: u32,
+    grab_window: u32,
+};
+
+type GrabMode22 = enum u8 {
+    Sync = 0,
+    Async,
+    Touch,
+};
+
+type GrabMode = enum u8 {
+    Sync = 0,
+    Async,
+};
+
+type GrabType = enum u8 {
+    Button = 0,
+    Keycode,
+    Enter,
+    FocusIn,
+    TouchBegin,
+};
+
+type GrabModifierInfo = container {
+    modifiers: u32, // 0x80000000 for Any
+    status: GrabStatus,
+    .pad: 3,
+};
+
+type XIPassiveGrabDeviceRequest = container {
+    time: u32, // 0 for Now
+    grab_window: u32,
+    cursor: u32,
+    detail: u32,
+    device: DeviceId,
+    num_modifiers: u16 = len(modifiers) :> u16,
+    num_mask: u16 = len(masks) :> u16,
+    grab_type: GrabType,
+    grab_mode: GrabMode22,
+    paired_device_mode: GrabMode,
+    owner_events: bool,
+    .pad: 2,
+    masks: u32[num_mask],
+    modifiers: u32[num_modifiers],
+};
+
+type XIPassiveGrabDeviceResponse = container {
+    num_modifiers: u16 = len(modifiers) :> u16,
+    .pad: 22,
+    modifiers: GrabModifierInfo[num_modifiers],
+};
+
+type XIPassiveUngrabDeviceRequest = container {
+    grab_window: u32,
+    detail: u32,
+    device: DeviceId,
+    num_modifiers: u16 = len(modifiers) :> u16,
+    grab_type: GrabType,
+    .pad: 3,
+    modifiers: u32[num_modifiers],
+};
+
+type XIListPropertiesRequest = container {
+    device: DeviceId,
+    .pad: 2,
+};
+
+type XIListPropertiesResponse = container {
+    num_properties: u16 = len(property_atoms) :> u16,
+    .pad: 22,
+    property_atoms: u32[num_properties],
+};
+
+type XIChangePropertyRequest = container {
+    device: DeviceId,
+    mode: ChangePropertyMode,
+    format: PropertyFormat,
+    property_atom: u32,
+    type_atom: u32,
+    value: PropertyValue(format),
+};
+
+type XIDeletePropertyRequest = container {
+    device: DeviceId,
+    .pad: 2,
+    property_atom: u32,
+};
+
+type XIGetPropertyRequest = container {
+    device: DeviceId,
+    delete: bool,
+    .pad: 1,
+    property_atom: u32,
+    type_atom: u32,
+    offset: u32,
+    len: u32,
+};
+
+type XIGetPropertyResponse = container {
+    type_atom: u32,
+    bytes_after: u32,
+    num_items: u32, //todo: calculate
+    format: PropertyFormat,
+    .pad: 11,
+    items_8: container {
+        items_8: u8[num_items],
+        .pad: pad(4, num_items),
+    } { format == PropertyFormat::L8 },
+    items_16: container {
+        items_16: u16[num_items],
+        .pad: pad(4, num_items * 2),
+    } { format == PropertyFormat::L16 },
+    items_32: container {
+        items_32: u32[num_items],
+    } { format == PropertyFormat::L32 },
+};
+
+type XIGetSelectedEventsRequest = container {
+    window: u32,
+};
+
+type XIGetSelectedEventsResponse = container {
+    num_masks: u16 = len(masks) :> u16,
+    .pad: 22,
+    masks: XIEventMasks[num_masks],
+};
+
+type BarrierReleasePointerInfo = container {
+    device: DeviceId,
+    .pad: 2,
+    barrier: u32,
+    event_id: u32,
+};
+
+type XIBarrierReleasePointerRequest = container {
+    num_barriers: u32 = len(barriers) :> u32,
+    barriers: BarrierReleasePointerInfo[num_barriers],
+};
+
+// events
+
+type ChangeReason = enum u8 {
+    SlaveSwitch = 1,
+    DeviceChange,
+};
+
+type DeviceChangedEvent = container {
+    device: DeviceId,
+    time: u32,
+    num_classes: u16 = len(classes) :> u16,
+    source_device: DeviceId,
+    reason: ChangeReason,
+    .pad: 11,
+    classes: DeviceClass[num_classes],
+};
+
+type KeyEventFlags = bitfield u32 {
+    KeyRepeat = 1 << 16,
+};
+
+type KeyEvent = container {
+    device: DeviceId,
+    time: u32,
+    keycode: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32,
+    root_x: Fp1616,
+    root_y: Fp1616,
+    event_x: Fp1616,
+    event_y: Fp1616,
+    buttons_len: u16 = len(buttons) :> u16,
+    valuators_len: u16 = len(valuators) :> u16,
+    source_device: DeviceId,
+    .pad: 2,
+    flags: KeyEventFlags,
+    mods: ModifierInfo,
+    group: GroupInfo,
+    buttons: u32[buttons_len],
+    valuators: u32[valuators_len],
+    axis_values: Fp3232[..],
+};
+
+type PointerEventFlags = bitfield u32 {
+    PointerEmulated = 1 << 16,
+};
+
+type ButtonEvent = container {
+    device: DeviceId,
+    time: u32,
+    button: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32,
+    root_x: Fp1616,
+    root_y: Fp1616,
+    event_x: Fp1616,
+    event_y: Fp1616,
+    buttons_len: u16 = len(buttons) :> u16,
+    valuators_len: u16 = len(valuators) :> u16,
+    source_device: DeviceId,
+    .pad: 2,
+    flags: PointerEventFlags,
+    mods: ModifierInfo,
+    group: GroupInfo,
+    buttons: u32[buttons_len],
+    valuators: u32[valuators_len],
+    axis_values: Fp3232[..],
+};
+
+type XINotifyMode = enum u8 {
+    Normal = 0,
+    Grab,
+    Ungrab,
+    WhileGrabbed,
+    PassiveGrab,
+    PassiveUngrab,
+};
+
+type XINotifyDetail = enum u8 {
+    Ancestor = 0,
+    Virtual,
+    Inferior,
+    Nonlinear,
+    NonlinearVirtual,
+    Pointer,
+    PointerRoot,
+    None,
+};
+
+type TransitionEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    source_device: DeviceId,
+    mode: XINotifyMode,
+    detail: XINotifyDetail,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32,
+    root_x: Fp1616,
+    root_y: Fp1616,
+    event_x: Fp1616,
+    event_y: Fp1616,
+    same_screen: bool,
+    focus: bool,
+    buttons_len: u16 = len(buttons) :> u16,
+    mods: ModifierInfo,
+    group: GroupInfo,
+    buttons: u32[buttons_len],
+};
+
+type HierarchyMask = bitfield u32 {
+    MasterAdded = 0x1,
+    MasterRemoved,
+    SlaveAdded,
+    SlaveRemoved,
+    SlaveAttached,
+    SlaveDetached,
+    DeviceEnabled,
+    DeviceDisabled,
+};
+
+type HierarchyInfo = container {
+    device: DeviceId,
+    attachment_device: DeviceId,
+    type_: DeviceType,
+    enabled: bool,
+    .pad: 2,
+    flags: HierarchyMask,
+};
+
+type HierarchyEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    flags: HierarchyMask,
+    num_infos: u16 = len(infos) :> u16,
+    .pad: 10,
+    infos: HierarchyInfo[num_infos],
+};
+
+type PropertyFlag = enum u8 {
+    Deleted = 0,
+    Created,
+    Modified,
+};
+
+type PropertyEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    property_atom: u32,
+    what: PropertyFlag,
+    .pad: 11,
+};
+
+type RawKeyEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    keycode: u32,
+    source_device: DeviceId,
+    valuators_len: u16 = len(valuators) :> u16,
+    flags: KeyEventFlags,
+    .pad: 4,
+    valuators: u32[valuators_len],
+    //todo: support proper length calculation here
+    combined_axis_values: Fp3232[..],
+};
+
+type RawButtonEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    button: u32,
+    source_device: DeviceId,
+    valuators_len: u16 = len(valuators) :> u16,
+    flags: PointerEventFlags,
+    .pad: 4,
+    valuators: u32[valuators_len],
+    //todo: support proper length calculation here
+    combined_axis_values: Fp3232[..],
+};
+
+type TouchEventFlags = bitfield u32 {
+    TouchPendingEnd = 1 << 16,
+    TouchEmulatingPointer,
+};
+
+type TouchEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    touch_id: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32,
+    root_x: Fp1616,
+    root_y: Fp1616,
+    event_x: Fp1616,
+    event_y: Fp1616,
+    buttons_len: u16 = len(buttons) :> u16,
+    valuators_len: u16 = len(valuators) :> u16,
+    source_device: DeviceId,
+    .pad: 2,
+    flags: TouchEventFlags,
+    mods: ModifierInfo,
+    group: GroupInfo,
+    buttons: u32[buttons_len],
+    valuators: u32[valuators_len],
+    //todo: calculate proper length
+    axis_values: Fp3232[..],
+};
+
+type TouchOwnershipFlags = enum u32 {
+    None = 0,
+};
+
+type TouchOwnershipEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    touch_id: u32,
+    root_window: u32,
+    event_window: u32,
+    child_window: u32,
+    source_device: DeviceId,
+    .pad: 2,
+    flags: TouchOwnershipFlags,
+    .pad: 8,
+};
+
+type RawTouchEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    touch_id: u32,
+    source_device: DeviceId,
+    valuators_len: u16 = len(valuators) :> u16,
+    flags: TouchEventFlags,
+    .pad: 4,
+    valuators: u32[valuators_len],
+    //todo: support proper length calculation here
+    combined_axis_values: Fp3232[..],
+};
+
+type BarrierFlags = bitfield u32 {
+    PointerRelease = 0x1,
+    DeviceIsGrabbed,
+};
+
+type BarrierEvent = container {
+    device: DeviceId,
+    time: u32, // 0 for Now
+    event_id: u32,
+    root_window: u32,
+    event_window: u32,
+    barrier: u32,
+    dtime: u32,
+    flags: BarrierFlags,
+    source_device: DeviceId,
+    .pad: 2,
+    root_x: Fp1616,
+    root_y: Fp1616,
+    dx: Fp3232,
+    dy: Fp3232,
+};
+
+// opcodes
+
+type XIOpcode = enum u8 {
+    XIQueryPointer = 40,
+    XIWarpPointer,
+    XIChangeCursor,
+    XIChangeHierarchy,
+    XISetClientPointer,
+    XIGetClientPointer,
+    XISelectEvents,
+    XIQueryVersion,
+    XIQueryDevice,
+    XISetFocus,
+    XIGetFocus,
+    XIGrabDevice,
+    XIUngrabDevice,
+    XIAllowEvents,
+    XIPassiveGrabDevice,
+    XIPassiveUngrabDevice,
+    XIListProperties,
+    XIChangeProperty,
+    XIDeleteProperty,
+    XIGetProperty,
+    XIGetSelectedEvents,
+    XIBarrierReleasePointer,
+};
+
+type XIEventCode = enum u16 {
+    DeviceChanged = 1,
+    KeyPress,
+    KeyRelease,
+    ButtonPress,
+    ButtonRelease,
+    Motion,
+    Enter,
+    Leave,
+    FocusIn,
+    FocusOut,
+    Hierarchy,
+    Property,
+
+    RawKeyPress,
+    RawKeyRelease,
+    RawButtonPress,
+    RawButtonRelease,
+    RawMotion,
+
+    TouchBegin,
+    TouchUpdate,
+    TouchEnd,
+    TouchOwnership,
+    RawTouchBegin,
+    RawTouchUpdate,
+    RawTouchEnd,
+
+    BarrierHit,
+    BarrierLeave,
+};
+
+type XIEventData(code: XIEventCode) = container +tagged_enum {
+    DeviceChanged: DeviceChangedEvent { code == XIEventCode::DeviceChanged },
+    KeyPress: KeyEvent { code == XIEventCode::KeyPress },
+    KeyRelease: KeyEvent { code == XIEventCode::KeyRelease },
+    ButtonPress: ButtonEvent { code == XIEventCode::ButtonPress },
+    ButtonRelease: ButtonEvent { code == XIEventCode::ButtonRelease },
+    Motion: ButtonEvent { code == XIEventCode::Motion },
+    Enter: TransitionEvent { code == XIEventCode::Enter },
+    Leave: TransitionEvent { code == XIEventCode::Leave },
+    FocusIn: TransitionEvent { code == XIEventCode::FocusIn },
+    FocusOut: TransitionEvent { code == XIEventCode::FocusOut },
+    Hierarchy: HierarchyEvent { code == XIEventCode::Hierarchy },
+    Property: PropertyEvent { code == XIEventCode::Property },
+
+    RawKeyPress: RawKeyEvent { code == XIEventCode::RawKeyPress },
+    RawKeyRelease: RawKeyEvent { code == XIEventCode::RawKeyRelease },
+    RawButtonPress: RawButtonEvent { code == XIEventCode::RawButtonPress },
+    RawButtonRelease: RawButtonEvent { code == XIEventCode::RawButtonRelease },
+    RawMotion: RawButtonEvent { code == XIEventCode::RawMotion },
+
+    TouchBegin: TouchEvent { code == XIEventCode::TouchBegin },
+    TouchUpdate: TouchEvent { code == XIEventCode::TouchUpdate },
+    TouchEnd: TouchEvent { code == XIEventCode::TouchEnd },
+    TouchOwnership: TouchOwnershipEvent { code == XIEventCode::TouchOwnership },
+    RawTouchBegin: RawTouchEvent { code == XIEventCode::RawTouchBegin },
+    RawTouchUpdate: RawTouchEvent { code == XIEventCode::RawTouchUpdate },
+    RawTouchEnd: RawTouchEvent { code == XIEventCode::RawTouchEnd },
+
+    BarrierHit: BarrierEvent { code == XIEventCode::BarrierHit },
+    BarrierLeave: BarrierEvent { code == XIEventCode::BarrierLeave },
+};

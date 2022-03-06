@@ -1,6 +1,6 @@
 use super::*;
 
-pub use crate::coding::{
+pub use crate::coding::x11::{
     Keybutmask,
     InputFocusRevert,
 };
