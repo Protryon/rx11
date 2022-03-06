@@ -1,0 +1,135 @@
+
+type ShapeOperation = enum u8 {
+    Set = 0,
+    Union,
+    Intersect,
+    Subtract,
+    Invert,
+};
+
+type ShapeKind = enum u8 {
+    Bounding = 0,
+    Clip,
+    Input,
+};
+
+type NotifyEvent = container {
+    shape_kind: ShapeKind,
+    affected_window: u32,
+    extents_x: i16,
+    extents_y: i16,
+    extents_width: u16,
+    extents_height: u16,
+    server_time: u32,
+    shaped: bool,
+    .pad: 11,
+};
+
+type QueryVersionRequest = container {
+};
+
+type QueryVersionResponse = container {
+    major_version: u16,
+    minor_version: u16,
+};
+
+// copied from x11.pspec
+type ClipSorting = enum u8 {
+    UnSorted = 0,
+    YSorted,
+    YXSorted,
+    YXBanded,
+};
+
+// copied from x11.pspec
+type Rectangle = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+};
+
+type RectanglesRequest = container {
+    operation: ShapeOperation,
+    dst_kind: ShapeKind,
+    ordering: ClipSorting,
+    .pad: 1,
+    dst_window: u32,
+    x_offset: i16,
+    y_offset: i16,
+    rectangles: Rectangle[..],
+};
+
+type MaskRequest = container {
+    operation: ShapeOperation,
+    dst_kind: ShapeKind,
+    .pad: 2,
+    dst_window: u32,
+    x_offset: i16,
+    y_offset: i16,
+    src_pixmap: u32, // 0 for None
+};
+
+type CombineRequest = container {
+    operation: ShapeOperation,
+    dst_kind: ShapeKind,
+    src_kind: ShapeKind,
+    .pad: 1,
+    dst_window: u32,
+    x_offset: i16,
+    y_offset: i16,
+    src_window: u32,
+};
+
+type OffsetRequest = container {
+    dst_kind: ShapeKind,
+    .pad: 3,
+    dst_window: u32,
+    x_offset: i16,
+    y_offset: i16,
+};
+
+type QueryExtentsRequest = container {
+    dst_window: u32,
+};
+
+type QueryExtentsResponse = container {
+    bounding_clipped: bool,
+    clip_shaped: bool,
+    .pad: 2,
+    bounding_shape_extents_x: i16,
+    bounding_shape_extents_y: i16,
+    bounding_shape_extents_width: u16,
+    bounding_shape_extents_height: u16,
+    clip_shape_extents_x: i16,
+    clip_shape_extents_y: i16,
+    clip_shape_extents_width: u16,
+    clip_shape_extents_height: u16,
+};
+
+type SelectInputRequest = container {
+    dst_window: u32,
+    enable: bool,
+    .pad: 3,
+};
+
+type InputSelectedRequest = container {
+    dst_window: u32,
+};
+
+// reserved => enabled: bool,
+type InputSelectedResponse = container {
+};
+
+type GetRectanglesRequest = container {
+    window: u32,
+    src_kind: ShapeKind,
+    .pad: 3,
+};
+
+type GetRectanglesResponse = container {
+    ordering: ClipSorting,
+    rectangles_len: u32 = len(rectangles) :> u32,
+    .pad: 20,
+    rectangles: Rectangle[rectangles_len],
+};

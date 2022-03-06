@@ -892,5 +892,5 @@ type XIEventData(code: XIEventCode) = container +tagged_enum {
 // errors
 
 type XIErrorCode = enum u8 {
-    Device = 0,
+    BadDevice = 0,
 };

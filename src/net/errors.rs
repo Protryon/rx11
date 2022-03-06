@@ -23,7 +23,7 @@ impl X11ErrorCode {
         }
         if let Some(xinput) = connection.get_ext_info(XINPUT_EXT_NAME) {
             if code == xinput.error_start {
-                return X11ErrorCode::XI(XIErrorCode::Device);
+                return X11ErrorCode::XI(XIErrorCode::BadDevice);
             }
         }
         X11ErrorCode::Unknown(code)

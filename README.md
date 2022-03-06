@@ -1,12 +1,24 @@
 
 ## Roadmap
 
-1. Finish `xinput`
-    * Barrier Request (needs xfixes really)
-        * Integrate xfixes with `BarrierEvent`
-2. Implement `xfixes`
-    * pspec
-    * api
-3. Implement `xrandr`
-    * pspec
-    * api
+*Finish `xinput`
+  * Barrier Request (needs xfixes really)
+    * Integrate xfixes with `BarrierEvent`
+* Implement `xfixes`
+  * pspec
+  * api
+* Implement `xrandr`
+  * pspec
+  * api
+* Implement `shape`
+  * pspec
+  * api
+* Implement `render`
+  * pspec
+  * api
+* Implement `record`
+  * pspec
+  * api
+* Implement `mit-shm`
+  * pspec
+  * api

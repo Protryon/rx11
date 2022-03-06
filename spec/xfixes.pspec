@@ -1,0 +1,309 @@
+
+type QueryVersionRequest = container {
+    client_major_version: u32,
+    client_minor_version: u32,
+};
+
+type QueryVersionResponse = container {
+    major_version: u32,
+    minor_version: u32,
+    .pad: 16,
+};
+
+type SaveSetMode = enum u8 {
+    Insert = 0,
+    Delete,
+};
+
+type SaveSetTarget = enum u8 {
+    Nearest = 0,
+    Root,
+};
+
+type SaveSetMapping = enum u8 {
+    Map = 0,
+    Unmap,
+};
+
+type ChangeSaveSetRequest = container {
+    mode: SaveSetMode,
+    target: SaveSetTarget,
+    map: SaveSetMapping,
+    .pad: 1,
+    window: u32,
+};
+
+type SelectionEventType = enum u8 {
+    SetSelectionOwner = 0,
+    SelectionWindowDestroy,
+    SelectionClientClose,
+};
+
+type SelectionEventMask = bitfield u32 {
+    SetSelectionOwner = 0x1,
+    SelectionWindowDestroy,
+    SelectionClientClose,
+};
+
+type SelectionNotifyEvent = container {
+    subtype: SelectionEventType,
+    window: u32,
+    owner_window: u32,
+    selection_atom: u32,
+    time: u32,
+    selection_time: u32,
+    .pad: 8,
+};
+
+type SelectSelectionInputRequest = container {
+    window: u32,
+    selection_atom: u32,
+    event_mask: SelectionEventMask,
+};
+
+type CursorNotifyType = enum u8 {
+    DisplayCursor = 0,
+};
+
+type CursorNotifyMask = bitfield u32 {
+    DisplayCursor = 0x1,
+};
+
+type CursorNotifyEvent = container {
+    subtype: CursorNotifyType,
+    window: u32,
+    cursor_serial: u32,
+    time: u32,
+    name_atom: u32, // 0 for None
+    .pad: 12,
+};
+
+type SelectCursorInputRequest = container {
+    window: u32,
+    event_mask: CursorNotifyMask,
+};
+
+type GetCursorImageRequest = container {
+};
+
+type GetCursorImageResponse = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    xhot: u16,
+    yhot: u16,
+    cursor_serial: u32,
+    .pad: 8,
+    cursor_image: u8[width * height],
+};
+
+type XFErrorCode = enum u8 {
+    BadRegion = 0,
+};
+
+// copied from x11.pspec
+type Rectangle = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+};
+
+type CreateRegionRequest = container {
+    region: u32,
+    rectangles: Rectangle[..],
+};
+
+type CreateRegionFromBitmapRequest = container {
+    region: u32,
+    pixmap: u32,
+};
+
+type CreateRegionFromWindowRequest = container {
+    region: u32,
+    window: u32,
+    shape_kind: u8,
+    .pad: 3,
+};
+
+type CreateRegionFromGCRequest = container {
+    region: u32,
+    gcontext: u32,
+};
+
+type CreateRegionFromPicture = container {
+    region: u32,
+    picture: u32,
+};
+
+type DestroyRegionRequest = container {
+    region: u32,
+};
+
+type SetRegionRequest = container {
+    region: u32,
+    rectangles: Rectangle[..],
+};
+
+type CopyRegionRequest = container {
+    src_region: u32,
+    dst_region: u32,
+};
+
+type UnionRegionRequest = container {
+    src_region1: u32,
+    src_region2: u32,
+    dst_region: u32,
+};
+
+type IntersectRegionRequest = container {
+    src_region1: u32,
+    src_region2: u32,
+    dst_region: u32,
+};
+
+type SubtractRegionRequest = container {
+    src_region1: u32,
+    src_region2: u32,
+    dst_region: u32,
+};
+
+type InvertRegionRequest = container {
+    src_region: u32,
+    bounds: Rectangle,
+    dst_region: u32,
+};
+
+type TranslateRequest = container {
+    region: u32,
+    dx: i16,
+    dy: i16,
+};
+
+type RegionExtentsRequest = container {
+    src_region: u32,
+    dst_region: u32,
+};
+
+type FetchRegionRequest = container {
+    region: u32,
+};
+
+type FetchRegionResponse = container {
+    extents: Rectangle,
+    .pad: 16,
+    rectangles: Rectangle[..],
+};
+
+type SetGCClipRegionRequest = container {
+    gcontext: u32,
+    region: u32, // 0 for None
+    x_origin: i16,
+    y_origin: i16,
+};
+
+type SetWindowShapeRegionRequest = container {
+    dst_window: u32,
+    dst_shape_kind: u8,
+    .pad: 3,
+    x_offset: i16,
+    y_offset: i16,
+    region: u32, // 0 for None
+};
+
+type SetPictureClipRegionRequest = container {
+    picture: u32,
+    region: u32, // 0 for None
+    x_origin: i16,
+    y_origin: i16,
+};
+
+type SetCursorNameRequest = container {
+    cursor: u32,
+    len: u16 = len(name) :> u16,
+    .pad: 2,
+    name: utf8(len),
+};
+
+type GetCursorNameRequest = container {
+    cursor: u32,
+};
+
+type GetCursorNameResponse = container {
+    name_atom: u32,
+    len: u16 = len(name) :> u16,
+    .pad: 18,
+    name: utf8(len),
+};
+
+type GetCursorImageAndNameRequest = container {
+};
+
+type GetCursorImageAndNameResponse = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    xhot: u16,
+    yhot: u16,
+    cursor_serial: u32,
+    cursor_name_atom: u32,
+    name_len: u16 = len(name) :> u16,
+    .pad: 2,
+    cursor_image: u8[width * height],
+    name: utf8(name_len),
+};
+
+type ChangeCursorRequest = container {
+    src_cursor: u32,
+    dst_cursor: u32,
+};
+
+type ChangeCursorByNameRequest = container {
+    src_cursor: u32,
+    len: u16 = len(name) :> u16,
+    .pad: 18,
+    name: utf8(len),
+};
+
+type ExpandRegionRequest = container {
+    src_region: u32,
+    dst_region: u32,
+    left: u16,
+    right: u16,
+    top: u16,
+    bottom: u16,
+};
+
+type HideCursorRequest = container {
+    cursor: u32,
+};
+
+type ShowCursorRequest = container {
+    cursor: u32,
+};
+
+type BarrierDirections = bitfield u32 {
+    PositiveX = 0x1,
+    PositiveY,
+    NegativeX,
+    NegativeY,
+};
+
+type CreatePointerBarrierRequest = container {
+    barrier: u32,
+    window: u32,
+    x1: u16,
+    y1: u16,
+    x2: u16,
+    y2: u16,
+    directions: BarrierDirections,
+    .pad: 2,
+    num_devices: u16 = len(devices) :> u16,
+    devices: u16[num_devices],
+};
+
+type DeletePointerBarrierRequest = container {
+    barrier: u32,
+};
