@@ -285,11 +285,11 @@ pub struct QueryTreeResult<'a> {
 }
 
 impl X11Connection {
-    pub fn root_window(&self) -> Window<'_> {
-        Window {
-            handle: self.screen().root_window,
+    pub fn root_window(&self, screen: usize) -> Option<Window<'_>> {
+        Some(Window {
+            handle: self.0.handshake.screens.get(screen)?.root_window,
             connection: self,
-        }
+        })
     }
 
     pub async fn create_window(&self, params: WindowParams<'_>) -> Result<Window<'_>> {
@@ -297,7 +297,7 @@ impl X11Connection {
         
         send_request!(self, params.depth, CreateWindow {
             window: window,
-            parent: params.parent.unwrap_or_else(|| self.root_window()).handle,
+            parent: params.parent.or_else(|| self.root_window(0)).ok_or_else(|| anyhow!("no screens for default parent"))?.handle,
             x: params.x,
             y: params.y,
             width: params.width,

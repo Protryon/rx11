@@ -888,3 +888,9 @@ type XIEventData(code: XIEventCode) = container +tagged_enum {
     BarrierHit: BarrierEvent { code == XIEventCode::BarrierHit },
     BarrierLeave: BarrierEvent { code == XIEventCode::BarrierLeave },
 };
+
+// errors
+
+type XIErrorCode = enum u8 {
+    Device = 0,
+};

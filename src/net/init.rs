@@ -1,4 +1,8 @@
+use crate::{coding::{Response, ResponseBody, ClientHandshake, ServerHandshake, ServerHandshakeBody}, connection::{UnixConnection, TcpConnection}};
+
 use super::*;
+use dashmap::mapref::entry::Entry;
+use tokio::{io::{AsyncRead, AsyncWrite, BufReader, BufWriter, AsyncWriteExt}, sync::{mpsc, Mutex, broadcast}};
 
 impl X11Connection {
     async fn writer_thread(mut writer: BufWriter<impl AsyncWrite + Unpin + Send + Sync>, mut in_receiver: mpsc::Receiver<RequestLen>) -> Result<()> {
@@ -15,7 +19,7 @@ impl X11Connection {
             match response.body {
                 ResponseBody::Event(event) => {
                     if let Err(_) = events.send((response.code, event)) {
-                        error!("failed to send event");
+                        warn!("failed to send x11 event (no listeners)");
                     }
                 },
                 ResponseBody::ErrorReply(error) => {
@@ -150,27 +154,6 @@ impl X11Connection {
                 packet
             },
         };
-        let mut depths = BTreeMap::new();
-        for screen in handshake.screens.iter() {
-            for depth in &screen.depths {
-                depths.insert(depth.depth, Depth {
-                    _internal: (),
-                    depth: depth.depth,
-                    visuals: depth.visuals.iter().map(|visual| VisualType {
-                        visual: Visual {
-                            handle: visual.visual,
-                        },
-                        class: visual.class,
-                        bits_per_rgb_value: visual.bits_per_rgb_value,
-                        colormap_entries: visual.colormap_entries,
-                        red_mask: visual.red_mask,
-                        green_mask: visual.green_mask,
-                        blue_mask: visual.blue_mask,
-                        _internal: (),
-                    }).collect(),
-                });
-            }
-        }
 
         let output = Arc::new(X11OutputContext {
             pending_errors: Mutex::new(vec![]),
@@ -194,7 +177,7 @@ impl X11Connection {
             }
         });
 
-        let self_ = Self(Arc::new(X11ConnectionInterior {
+        let mut self_ = Self(Arc::new(X11ConnectionInterior {
             output,
             writer: in_sender,
             handshake,
@@ -204,7 +187,6 @@ impl X11Connection {
             known_atoms_inverse: DashMap::new(),
             registered_extensions: DashMap::new(),
             events_sender,
-            depths
         }));
         self_.register_const_atoms();
 

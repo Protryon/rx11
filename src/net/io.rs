@@ -1,4 +1,13 @@
+use dashmap::mapref::entry::Entry;
+
+use crate::coding::{RequestBody, Request, Response, ResponseBody};
+
 use super::*;
+
+pub(crate) struct RequestLen {
+    pub request: Request,
+    pub len: u64,
+}
 
 impl X11Connection {
 

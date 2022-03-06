@@ -1,9 +1,13 @@
+use crate::{requests::{XINPUT_EXT_NAME, XKB_EXT_NAME}};
+pub use crate::coding::{xinput2::XIErrorCode, xkb::XKBErrorCode, ErrorCode};
+
 use super::*;
 
 #[derive(Debug, Clone)]
 pub enum X11ErrorCode {
     X11(ErrorCode),
     XKB(XKBErrorCode),
+    XI(XIErrorCode),
     Unknown(u8),
 }
 
@@ -15,6 +19,11 @@ impl X11ErrorCode {
         if let Some(xkb) = connection.get_ext_info(XKB_EXT_NAME) {
             if code == xkb.error_start {
                 return X11ErrorCode::XKB(XKBErrorCode::Keyboard);
+            }
+        }
+        if let Some(xinput) = connection.get_ext_info(XINPUT_EXT_NAME) {
+            if code == xinput.error_start {
+                return X11ErrorCode::XI(XIErrorCode::Device);
             }
         }
         X11ErrorCode::Unknown(code)

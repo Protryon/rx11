@@ -48,7 +48,6 @@ type PixmapFormat = container {
     bits_per_pixel: u8,
     scanline_pad: u8,
     .pad: 5
-    //.pad: 5,
 };
 
 type Screen = container {

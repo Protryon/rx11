@@ -1,7 +1,10 @@
 use std::ops::BitOr;
 
+use tokio::sync::broadcast::error::RecvError;
+
 use super::*;
-use crate::{coding::{x11::{Event as RawEvent}, xkb::XKBEventMask, xinput2::XIEventMask}, requests::XINPUT_EXT_NAME};
+use crate::{coding::{xkb::XKBEventMask, xinput2::XIEventMask}, requests::{XINPUT_EXT_NAME, XKB_EXT_NAME}, events::Event};
+pub(crate) use crate::coding::Event as RawEvent;
 pub use crate::coding::x11::X11EventMask;
 
 type RawEventData = (u8, RawEvent);
@@ -73,6 +76,9 @@ impl EventFilter {
 
 impl X11EventMask {
     fn matches(&self, code: u8) -> bool {
+        if code >= 64 {
+            return false;
+        }
         let bit = 1u64 << code;
         (self.0 & bit) != 0
     }

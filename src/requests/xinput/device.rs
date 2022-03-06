@@ -262,7 +262,6 @@ impl<'a> Device<'a> {
         mask: XIEventMask,
         modifiers: impl AsRef<[u32]>,
     ) -> Result<Vec<GrabModifierInfo>> {
-        //todo: check mask is mapped properly
         let seq = send_request_xinput!(self.connection, XIOpcode::XIPassiveGrabDevice, false, XIPassiveGrabDeviceRequest {
             grab_window: window.handle,
             time: 0,
@@ -306,7 +305,6 @@ impl<'a> Device<'a> {
         grab: PassiveUngrab,
         modifiers: impl AsRef<[u32]>,
     ) -> Result<()> {
-        //todo: check mask is mapped properly
         send_request_xinput!(self.connection, XIOpcode::XIPassiveUngrabDevice, true, XIPassiveUngrabDeviceRequest {
             grab_window: window.handle,
             detail: match &grab {
