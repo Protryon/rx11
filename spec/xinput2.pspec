@@ -24,12 +24,14 @@ type ValuatorMode = enum u8 {
     Absolute,
 };
 
+// copied from x11.pspec
 type ChangePropertyMode = enum u8 {
     Replace = 0,
     Prepend,
     Append,
 };
 
+// copied from x11.pspec
 type PropertyFormat = enum u8 {
     L8 = 8,
     L16 = 16,

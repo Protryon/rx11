@@ -7,7 +7,6 @@
 * Implement `xfixes`
   * api
 * Implement `xrandr`
-  * pspec
   * api
 * Implement `shape`
   * api
@@ -21,5 +20,4 @@
   * pspec
   * api
 * Implement `dpms`
-  * pspec
   * api

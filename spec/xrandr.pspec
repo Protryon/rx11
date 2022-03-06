@@ -1,0 +1,741 @@
+import_ffi pad as function;
+
+type XRErrorCode = enum u8 {
+    BadOutput = 0,
+    BadCrtc,
+    BadMode,
+    BadProvider,
+};
+
+type Rotation = bitfield u16 {
+    Rotate0 = 0x1,
+    Rotate90,
+    Rotate180,
+    Rotate270,
+    ReflectX,
+    ReflectY,
+};
+
+type ScreenSize = container {
+    width: u16,
+    height: u16,
+    width_mm: u16,
+    height_mm: u16,
+};
+
+type RefreshRates = container {
+    num_rates: u16 = len(rates) :> u16,
+    rates: u16[num_rates],
+};
+
+type QueryVersionRequest = container {
+    major_version: u32,
+    minor_version: u32,
+};
+
+type QueryVersionResponse = container {
+    major_version: u32,
+    minor_version: u32,
+    .pad: 16,
+};
+
+// opcode 1 is intentionally missing
+
+type SetConfig = enum u8 {
+    Success = 0,
+    InvalidConfigTime,
+    InvalidTime,
+    Failed,
+};
+
+// from `render`
+type SubPixel = enum u16 {
+    Unknown = 0,
+    HorizontalRGB,
+    HorizontalBGR,
+    VerticalRGB,
+    VerticalBGR,
+    None,
+};
+
+type SetScreenConfigRequest = container {
+    window: u32,
+    time: u32,
+    config_time: u32,
+    size_id: u16,
+    rotation: Rotation,
+    rate: u16,
+    .pad: 2,
+};
+
+// reserved: status: SetConfig,
+type SetScreenConfigResponse = container {
+    new_time: u32,
+    config_time: u32,
+    root_window: u32,
+    subpixel_order: SubPixel,
+    .pad: 10,
+};
+
+type XREventMask = bitfield u16 {
+    ScreenChange = 0x1,
+    CrtcChange,
+    OutputChange,
+    OutputProperty,
+    ProviderChange,
+    ProviderProperty,
+    ResourceChange,
+};
+
+type SelectInputRequest = container {
+    window: u32,
+    event_mask: XREventMask,
+    .pad: 2,
+};
+
+type GetScreenInfoRequest = container {
+    window: u32,
+};
+
+type GetScreenInfoResponse = container {
+    rotations: u8, // `rotation` casted into u8
+    root_window: u32,
+    time: u32,
+    config_time: u32,
+    num_sizes: u16 = len(sizes) :> u16,
+    size_id: u16,
+    rotation: Rotation,
+    rate: u16,
+    num_infos: u16 = (len(rates) + len(sizes)) :> u16,
+    .pad: 2,
+    sizes: ScreenSize[num_sizes],
+    rates: RefreshRates[num_infos - num_sizes],
+};
+
+type GetScreenSizeRangeRequest = container {
+    window: u32,
+};
+
+type GetScreenSizeRangeResponse = container {
+    min_width: u16,
+    min_height: u16,
+    max_width: u16,
+    max_height: u16,
+    .pad: 16,
+};
+
+type SetScreenSizeRequest = container {
+    window: u32,
+    width: u16,
+    height: u16,
+    width_mm: u32,
+    height_mm: u32,
+};
+
+type ModeFlag = bitfield u32 {
+    HsyncPositive = 0x1,
+    HsyncNegative,
+    VsyncPositive,
+    VsyncNegative,
+    Interlace,
+    DoubleScan,
+    Csync,
+    CsyncPositive,
+    CsyncNegative,
+    HskewPresent,
+    Bcast,
+    PixelMultiplex,
+    DoubleClock,
+    HalveClock,
+};
+
+type ModeInfo = container {
+    id: u32,
+    width: u16,
+    height: u16,
+    dot_clock: u32,
+    hsync_start: u16,
+    hsync_end: u16,
+    htotal: u16,
+    hskew: u16,
+    vsync_start: u16,
+    vsync_end: u16,
+    vtotal: u16,
+    name_len: u16,
+    mode_flags: ModeFlag,
+};
+
+type GetScreenResourcesRequest = container {
+    window: u32,
+};
+
+type GetScreenResourcesResponse = container {
+    time: u32,
+    config_time: u32,
+    num_crtcs: u16 = len(crtcs) :> u16,
+    num_outputs: u16 = len(outputs) :> u16,
+    num_modes: u16 = len(modes) :> u16,
+    names_len: u16 = len(names) :> u16,
+    .pad: 8,
+    crtcs: u32[num_crtcs],
+    outputs: u32[num_outputs],
+    modes: ModeInfo[num_modes],
+    names: utf8(names_len),
+};
+
+type Connection = enum u8 {
+    Connected = 0,
+    Disconnected,
+    Unknown,
+};
+
+type GetOutputInfoRequest = container {
+    output: u32,
+    config_time: u32,
+};
+
+// reserved => status: SetConfig,
+type GetOutputInfoResponse = container {
+    time: u32,
+    crtc: u32,
+    width_mm: u32,
+    height_mm: u32,
+    connection: Connection,
+    subpixel_order: SubPixel,
+    num_crtcs: u16 = len(crtcs) :> u16,
+    num_modes: u16 = len(modes) :> u16,
+    num_preferred: u16 = len(preferred) :> u16,
+    num_clones: u16 = len(clone_outputs) :> u16,
+    name_len: u16 = len(name) :> u16,
+    crtcs: u32[num_crtcs],
+    modes: u32[num_modes],
+    clone_outputs: u32[num_clones],
+    name: utf8(name_len),
+};
+
+
+type ListOutputPropertiesRequest = container {
+    output: u32,
+};
+
+type ListOutputPropertiesResponse = container {
+    num_atoms: u16 = len(property_atoms) :> u16,
+    .pad: 22,
+    property_atoms: u32[num_atoms],
+};
+
+type QueryOutputPropertyRequest = container {
+    output: u32,
+    property_atom: u32,
+};
+
+type QueryOutputPropertyResponse = container {
+    pending: bool,
+    range: bool,
+    immutable: bool,
+    .pad: 21,
+    valid_values: i32[..],
+};
+
+type ConfigureOutputPropertyRequest = container {
+    output: u32,
+    property_atom: u32,
+    pending: bool,
+    range: bool,
+    .pad: 2,
+    values: i32[..],
+};
+
+// copied from x11.pspec
+type ChangePropertyMode = enum u8 {
+    Replace = 0,
+    Prepend,
+    Append,
+};
+
+// copied from x11.pspec
+type PropertyFormat = enum u8 {
+    L8 = 8,
+    L16 = 16,
+    L32 = 32,
+};
+
+// copied from xinput2.pspec
+type PropertyValue(format: PropertyFormat, pad_value: u64) = container +tagged_enum {
+    Items8: container {
+        num_items: u32 = len(items_8) :> u32,
+        .pad: pad_value,
+        items_8: u8[num_items],
+        .pad: pad(4, num_items),
+    } { format == PropertyFormat::L8 },
+    Items16: container {
+        num_items: u32 = len(items_16) :> u32,
+        .pad: pad_value,
+        items_16: u16[num_items],
+        .pad: pad(4, num_items * 2),
+    } { format == PropertyFormat::L16 },
+    Items32: container {
+        num_items: u32 = len(items_32) :> u32,
+        .pad: pad_value,
+        items_32: u32[num_items],
+    } { format == PropertyFormat::L32 },
+};
+
+type ChangeOutputPropertyRequest = container {
+    output: u32,
+    property_atom: u32,
+    type_atom: u32,
+    format: PropertyFormat,
+    mode: ChangePropertyMode,
+    .pad: 2,
+    value: PropertyValue(format, 0),
+};
+
+type DeleteOutputPropertyRequest = container {
+    output: u32,
+    property_atom: u32,
+};
+
+type GetOutputPropertyRequest = container {
+    output: u32,
+    property_atom: u32,
+    type_atom: u32, // 0 for None
+    long_offset: u32,
+    long_length: u32,
+    delete: bool,
+    pending: bool,
+    .pad: 2,
+};
+
+// reserved => format: PropertyFormat
+type GetOutputPropertyResponse(format: PropertyFormat) = container {
+    type_atom: u32,
+    bytes_after: u32,
+    value: PropertyValue(format, 12),
+};
+
+type CreateModeRequest = container {
+    window: u32,
+    mode_info: ModeInfo,
+    name: utf8(),
+};
+
+type CreateModeResponse = container {
+    mode: u32,
+    .pad: 20,
+};
+
+type DestroyModeRequest = container {
+    mode: u32,
+};
+
+type AddOutputModeRequest = container {
+    output: u32,
+    mode: u32,
+};
+
+type DeleteOutputModeRequest = container {
+    output: u32,
+    mode: u32,
+};
+
+type GetCrtcInfoRequest = container {
+    crtc: u32,
+    config_time: u32,
+};
+
+// reserved => status: SetConfig,
+type GetCrtcInfoResponse = container {
+    time: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    mode: u32,
+    rotation: Rotation,
+    rotations: Rotation,
+    num_outputs: u16 = len(outputs) :> u16,
+    num_possible_outputs: u16 = len(possible_outputs) :> u16,
+    outputs: u32[num_outputs],
+    possible_outputs: u32[num_possible_outputs],
+};
+
+type SetCrtcConfigRequest = container {
+    crtc: u32,
+    time: u32,
+    config_time: u32,
+    x: i16,
+    y: i16,
+    mode: u32,
+    rotation: Rotation,
+    .pad: 2,
+    outputs: u32[..],
+};
+
+// reserved => status: SetConfig,
+type SetCrtcConfigResponse = container {
+    time: u32,
+    .pad: 20,
+};
+
+type GetCrtcGammaSizeRequest = container {
+    crtc: u32,
+};
+
+type GetCrtcGammaSizeResponse = container {
+    size: u16,
+    .pad: 22,
+};
+
+type GetCrtcGammaRequest = container {
+    crtc: u32,
+}
+
+type GetCrtcGammaResponse = container {
+    size: u16 = len(red) :> u16,
+    .pad: 22,
+    red: u16[size],
+    green: u16[size],
+    blue: u16[size],
+};
+
+type SetCrtcGammaRequest = container {
+    crtc: u32,
+    size: u16 = len(red) :> u16,
+    .pad: 2,
+    red: u16[size],
+    green: u16[size],
+    blue: u16[size],
+};
+
+// GetScreenResourcesCurrentRequest/Response skipped since it's a duplicated
+
+type Fp1616 = container {
+    integral: i16,
+    frac: u16,
+};
+
+// from xrender
+type Transform = Fp1616[9];
+
+type SetCrtcTransformRequest = container {
+    crtc: u32,
+    transform: Transform,
+    filter_len: u16 = len(filter) :> u16,
+    .pad: 2,
+    filter_name: utf8(filter_len),
+    .pad: pad(4, filter_len),
+    filter_params: Fp1616,
+};
+
+type GetCrtcTransformRequest = container {
+    crtc: u32,
+};
+
+type GetCrtcTransformResponse = container {
+    pending_transform: Transform,
+    has_transforms: bool,
+    .pad: 3,
+    current_transform: Transform,
+    .pad: 4,
+    pending_len: u16 = len(pending_filter_name) :> u16,
+    pending_num_params: u16 = len(pending_params) :> u16,
+    current_len: u16 = len(current_filter_name) :> u16,
+    current_num_params: u16 = len(current_params) :> u16,
+    pending_filter_name: utf8(pending_len),
+    .pad: pad(4, pending_len),
+    pending_params: Fp1616[pending_num_params],
+    current_filter_name: utf8(current_len),
+    .pad: pad(4, pending_len),
+    current_params: Fp1616[current_num_params],
+};
+
+type GetPanningRequest = container {
+    crtc: u32,
+};
+
+type Panning = container {
+    time: u32,
+    left: u16,
+    top: u16,
+    width: u16,
+    height: u16,
+    track_left: u16,
+    track_top: u16,
+    track_width: u16,
+    track_height: u16,
+    border_left: i16,
+    border_top: i16,
+    border_right: i16,
+    border_bottom: i16,
+};
+
+// reserved => status: SetConfig,
+type GetPanningResponse = container {
+    value: Panning,
+};
+
+type SetPanningRequest = container {
+    crtc: u32,
+    value: Panning,
+};
+
+// reserved => status: SetConfig,
+type SetPanningResponse = container {
+    time: u32,
+};
+
+type SetOutputPrimaryRequest = container {
+    window: u32,
+    output: u32,
+};
+
+type GetOutputPrimaryRequest = container {
+    window: u32,
+};
+
+type GetOutputPrimaryResponse = container {
+    output: u32,
+};
+
+type GetProvidersRequest = container {
+    window: u32,
+};
+
+type GetProvidersResponse = container {
+    time: u32,
+    num_providers: u16 = len(providers) :> u16,
+    .pad: 18,
+    providers: u32[num_providers],
+};
+
+type ProviderCapability = bitfield u32 {
+    SourceOutput = 0x1,
+    SinkOutput,
+    SourceOffload,
+    SinkOffload,
+};
+
+type GetProviderInfoRequest = container {
+    provider: u32,
+    config_time: u32,
+};
+
+// reserved => status: SetConfig,
+type GetProviderInfoResponse = container {
+    time: u32,
+    capabilities: ProviderCapability,
+    num_crtcs: u16 = len(crtcs) :> u16,
+    num_outputs: u16 = len(outputs) :> u16,
+    num_associated_providers: u16 = len(associated_providers) :> u16,
+    name_len: u16 = len(name) :> u16,
+    .pad: 8,
+    crtcs: u32[num_crtcs],
+    outputs: u32[num_outputs],
+    associated_providers: u32[num_associated_providers],
+    associated_provider_capability: ProviderCapability[num_associated_providers],
+    name: utf8(name_len),
+    .pad: pad(4, name_len),
+};
+
+type SetProviderOffloadSinkRequest = container {
+    provider: u32,
+    sink_provider: u32,
+    config_time: u32,
+};
+
+type SetProviderOutputSourceRequest = container {
+    provider: u32,
+    source_provider: u32,
+    config_time: u32,
+};
+
+type ListProviderPropertiesRequest = container {
+    provider: u32,
+};
+
+type ListProviderPropertiesResponse = container {
+    num_atoms: u16 = len(property_atoms) :> u16,
+    .pad: 22,
+    property_atoms: u32[num_atoms],
+};
+
+type QueryProviderPropertyRequest = container {
+    provider: u32,
+    property_atom: u32,
+};
+
+type QueryProviderPropertyResponse = container {
+    pending: bool,
+    range: bool,
+    immutable: bool,
+    .pad: 21,
+    valid_values: i32[..],
+};
+
+type ConfigureProviderPropertyRequest = container {
+    provider: u32,
+    property_atom: u32,
+    pending: bool,
+    range: bool,
+    .pad: 2,
+    values: i32[..],
+};
+
+type ChangeProviderPropertyRequest = container {
+    provider: u32,
+    property_atom: u32,
+    type_atom: u32,
+    format: PropertyFormat,
+    mode: ChangePropertyMode,
+    .pad: 2,
+    value: PropertyValue(format),
+};
+
+type DeleteProviderPropertyRequest = container {
+    provider: u32,
+    property_atom: u32,
+};
+
+type GetProviderPropertyRequest = container {
+    provider: u32,
+    property_atom: u32,
+    type_atom: u32, // 0 for None
+    long_offset: u32,
+    long_length: u32,
+    delete: bool,
+    pending: bool,
+    .pad: 2,
+};
+
+// reserved => format: PropertyFormat
+type GetProviderPropertyResponse(format: PropertyFormat) = container {
+    type_atom: u32,
+    bytes_after: u32,
+    value: PropertyValue(format, 12),
+};
+
+type ScreenChangeNotifyEvent = container {
+    rotation: Rotation,
+    time: u32,
+    config_time: u32,
+    root_window: u32,
+    request_window: u32,
+    size_id: u16,
+    subpixel_order: SubPixel,
+    width: u16,
+    height: u16,
+    width_mm: u16,
+    height_mm: u16,
+};
+
+type NotifyCode = enum u8 {
+    CrtcChange = 0,
+    OutputChange,
+    OutputProperty,
+    ProviderChange,
+    ProviderProperty,
+    ResourceChange,
+};
+
+// from x11.pspec
+type PropertyNotifyState = enum u8 {
+    NewValue = 0,
+    Deleted,
+};
+
+type NotifyData(code: NotifyCode) = container +tagged_enum {
+    CrtcChange: container {
+        time: u32,
+        window: u32,
+        crtc: u32,
+        mode: u32,
+        rotation: Rotation,
+        .pad: 2,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+    } { code == NotifyCode::CrtcChange },
+    OutputChange: container {
+        time: u32,
+        config_time: u32,
+        window: u32,
+        output: u32,
+        crtc: u32,
+        mode: u32,
+        rotation: Rotation,
+        connection: Connection,
+        subpixel_order: SubPixel,
+    } { code == NotifyCode::OutputChange },
+    OutputProperty: container {
+        window: u32,
+        output: u32,
+        name_atom: u32,
+        time: u32,
+        status: PropertyNotifyState,
+        .pad: 11,
+    } { code == NotifyCode::OutputProperty },
+    ProviderChange: container {
+        time: u32,
+        window: u32,
+        provider: u32,
+        .pad: 16,
+    } { code == NotifyCode::ProviderChange },
+    ProviderProperty: container {
+        window: u32,
+        provider: u32,
+        name_atom: u32,
+        time: u32,
+        status: PropertyNotifyState,
+        .pad: 11,
+    } { code == NotifyCode::ProviderProperty },
+    ResourceChange: container {
+        time: u32,
+        window: u32,
+        .pad: 20,
+    } { code == NotifyCode::ResourceChange },
+};
+
+type NotifyEvent = container {
+    code: NotifyCode,
+    data: NotifyData(code),
+};
+
+type MonitorInfo = container {
+    name_atom: u32,
+    primary: bool,
+    automatic: bool,
+    num_outputs: u16 = len(outputs) :> u16,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    width_mm: u32,
+    height_mm: u32,
+    outputs: u32[num_outputs],
+};
+
+type GetMonitorsRequest = container {
+    window: u32,
+    get_active: bool,
+    .pad: 3,
+};
+
+type GetMonitorsResponse = container {
+    time: u32,
+    num_monitors: u32 = len(monitors) :> u32,
+    num_outputs: u32, // todo: does this need calculation?
+    .pad: 12,
+    monitors: MonitorInfo[num_monitors],
+};
+
+type SetMonitorRequest = container {
+    window: u32,
+    info: MonitorInfo,
+};
+
+type DeleteMonitorRequest = container {
+    window: u32,
+    name_atom: u32,
+};
