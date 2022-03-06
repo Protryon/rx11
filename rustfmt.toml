@@ -4,4 +4,4 @@ max_width = 160
 # rustfmt breaks the send_request macros
 attr_fn_like_width = 160
 fn_call_width = 120
-struct_lit_width = 12
+struct_lit_width = 0
