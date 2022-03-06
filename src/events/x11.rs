@@ -2,9 +2,11 @@
 use crate::coding::GenericEvent;
 use crate::events::XIEvent;
 use crate::{coding, events::XKBEvent};
-use crate::connection::X11Connection;
+use crate::net::X11Connection;
 use crate::requests::*;
 use anyhow::Result;
+use bitvec::order::Lsb0;
+use bitvec::prelude::BitVec;
 
 pub use crate::coding::x11::{
     NotifyDetail,
@@ -495,19 +497,19 @@ impl<'a> FocusEvent<'a> {
 
 #[derive(Clone, Debug)]
 pub struct KeymapNotifyEvent {
-    pub keys: Vec<u8>,
+    pub keys: BitVec<u8, Lsb0>,
 }
 
 impl KeymapNotifyEvent {
     fn from_protocol(_connection: &X11Connection, from: coding::x11::KeymapNotifyEvent) -> Self {
         Self {
-            keys: from.keys,
+            keys: BitVec::from_vec(from.keys),
         }
     }
 
     fn to_protocol(self) -> coding::x11::KeymapNotifyEvent {
         coding::x11::KeymapNotifyEvent {
-            keys: self.keys,
+            keys: self.keys.into_vec(),
         }
     }
 }

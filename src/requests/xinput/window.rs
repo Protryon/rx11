@@ -3,7 +3,6 @@ use crate::coding::xinput2::{XISetClientPointerRequest, XIGetClientPointerReques
 use super::*;
 
 impl<'a> Window<'a> {
-
     pub async fn set_client_pointer(&self, device: Device<'_>) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XISetClientPointer, true, XISetClientPointerRequest {
             device: device.id,
@@ -31,7 +30,7 @@ impl<'a> Window<'a> {
     pub async fn xi_select_events(&self, masks: impl IntoIterator<Item=(Device<'_>, XIEventMask)>) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XISelectEvents, true, XISelectEventsRequest {
             window: self.handle,
-            masks: masks.into_iter().map(|(device, mask)| XIEventMasks { device: device.id, mask_num: 0, masks: vec![mask] }).collect(),
+            masks: masks.into_iter().map(|(device, mask)| XIEventMasks { device: device.id, mask_num: 0, mask }).collect(),
         });
         Ok(())
     }
@@ -47,7 +46,7 @@ impl<'a> Window<'a> {
                 id: mask.device,
                 connection: self.connection,
             },
-            mask.masks.get(0).copied().unwrap_or(XIEventMask::ZERO),
+            mask.mask,
         )).collect())
     }
 }

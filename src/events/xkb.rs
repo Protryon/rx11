@@ -14,7 +14,7 @@ pub use crate::coding::xkb::{
 
     BellClassResult
 };
-use crate::{requests::{Timestamp, Window, Atom}, coding::xkb::{self, XKBEventType, XKBEventData}, connection::X11Connection};
+use crate::{requests::{Timestamp, Window, Atom}, coding::xkb::{self, XKBEventType, XKBEventData}, net::X11Connection};
 use anyhow::Result;
 
 #[derive(Clone, Debug)]

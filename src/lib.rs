@@ -6,6 +6,8 @@ extern crate anyhow;
 extern crate log;
 
 #[macro_use]
+pub mod net;
+
 pub mod connection;
 
 mod coding;

@@ -85,7 +85,7 @@ type XIQueryPointerResponse = container {
     buttons_len: u16 = len(buttons) :> u16,
     mods: ModifierInfo,
     groups: GroupInfo,
-    buttons: u32[buttons_len],
+    buttons: u32le[buttons_len],
 };
 
 type XIWarpPointerRequest = container {
@@ -210,8 +210,8 @@ type XIEventMask = bitfield u32le {
 
 type XIEventMasks = container {
     device: DeviceId,
-    mask_num: u16 = len(masks) :> u16,
-    masks: XIEventMask[mask_num],
+    mask_num: u16 = 1, // len(masks) :> u16,
+    mask: XIEventMask,
 };
 
 type XISelectEventsRequest = container {
@@ -271,7 +271,7 @@ type DeviceClassData(class: DeviceClassType) = container +tagged_enum {
     } { class == DeviceClassType::Key },
     Button: container {
         num_buttons: u16 = len(label_atoms) :> u16,
-        state: u32[(num_buttons + 31) / 32],
+        state: u32le[(num_buttons + 31) / 32],
         label_atoms: u32[num_buttons],
     } { class == DeviceClassType::Button },
     Valuator: container {
@@ -366,8 +366,8 @@ type XIGrabDeviceRequest = container {
     paired_device_mode: GrabMode,
     owner_events: bool,
     .pad: 1,
-    mask_num: u16 = len(masks) :> u16,
-    masks: u32[mask_num],
+    mask_num: u16 = 1, // len(masks) :> u16,
+    mask: XIEventMask,
 };
 
 type XIGrabDeviceResponse = container {
@@ -433,13 +433,13 @@ type XIPassiveGrabDeviceRequest = container {
     detail: u32,
     device: DeviceId,
     num_modifiers: u16 = len(modifiers) :> u16,
-    num_mask: u16 = len(masks) :> u16,
+    num_mask: u16 = 1, // len(masks) :> u16,
     grab_type: GrabType,
     grab_mode: GrabMode22,
     paired_device_mode: GrabMode,
     owner_events: bool,
     .pad: 2,
-    masks: u32[num_mask],
+    mask: XIEventMask,
     modifiers: u32[num_modifiers],
 };
 
@@ -575,8 +575,8 @@ type KeyEvent = container {
     flags: KeyEventFlags,
     mods: ModifierInfo,
     group: GroupInfo,
-    buttons: u32[buttons_len],
-    valuators: u32[valuators_len],
+    buttons: u32le[buttons_len],
+    valuators: u32le[valuators_len],
     axis_values: Fp3232[..],
 };
 
@@ -602,8 +602,8 @@ type ButtonEvent = container {
     flags: PointerEventFlags,
     mods: ModifierInfo,
     group: GroupInfo,
-    buttons: u32[buttons_len],
-    valuators: u32[valuators_len],
+    buttons: u32le[buttons_len],
+    valuators: u32le[valuators_len],
     axis_values: Fp3232[..],
 };
 
@@ -645,7 +645,7 @@ type TransitionEvent = container {
     buttons_len: u16 = len(buttons) :> u16,
     mods: ModifierInfo,
     group: GroupInfo,
-    buttons: u32[buttons_len],
+    buttons: u32le[buttons_len],
 };
 
 type HierarchyMask = bitfield u32 {
@@ -699,7 +699,7 @@ type RawKeyEvent = container {
     valuators_len: u16 = len(valuators) :> u16,
     flags: KeyEventFlags,
     .pad: 4,
-    valuators: u32[valuators_len],
+    valuators: u32le[valuators_len],
     //todo: support proper length calculation here
     combined_axis_values: Fp3232[..],
 };
@@ -712,7 +712,7 @@ type RawButtonEvent = container {
     valuators_len: u16 = len(valuators) :> u16,
     flags: PointerEventFlags,
     .pad: 4,
-    valuators: u32[valuators_len],
+    valuators: u32le[valuators_len],
     //todo: support proper length calculation here
     combined_axis_values: Fp3232[..],
 };
@@ -740,8 +740,8 @@ type TouchEvent = container {
     flags: TouchEventFlags,
     mods: ModifierInfo,
     group: GroupInfo,
-    buttons: u32[buttons_len],
-    valuators: u32[valuators_len],
+    buttons: u32le[buttons_len],
+    valuators: u32le[valuators_len],
     //todo: calculate proper length
     axis_values: Fp3232[..],
 };
@@ -771,7 +771,7 @@ type RawTouchEvent = container {
     valuators_len: u16 = len(valuators) :> u16,
     flags: TouchEventFlags,
     .pad: 4,
-    valuators: u32[valuators_len],
+    valuators: u32le[valuators_len],
     //todo: support proper length calculation here
     combined_axis_values: Fp3232[..],
 };

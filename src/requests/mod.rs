@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crate::connection::X11Connection;
+use crate::net::X11Connection;
 use crate::events::Event;
 use crate::{send_request, send_request_ext, receive_reply};
 

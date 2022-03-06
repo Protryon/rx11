@@ -1,3 +1,5 @@
+use bitvec::{prelude::BitVec, order::Lsb0};
+
 use crate::coding::xinput2::{XIQueryPointerRequest, XIQueryPointerResponse, XIWarpPointerRequest, Fp1616, XIChangeCursorRequest};
 pub use crate::coding::xinput2::{
     ModifierInfo,
@@ -16,7 +18,7 @@ pub struct PointerData<'a> {
     pub same_screen: bool,
     pub mods: ModifierInfo,
     pub group: GroupInfo,
-    pub buttons: Vec<u32>,
+    pub buttons: BitVec<u32, Lsb0>,
 }
 
 impl<'a> Window<'a> {
@@ -46,7 +48,7 @@ impl<'a> Window<'a> {
             same_screen: reply.same_screen,
             mods: reply.mods,
             group: reply.groups,
-            buttons: reply.buttons,
+            buttons: BitVec::from_vec(reply.buttons),
         })
     }
 

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::coding::xinput2::{XIQueryDeviceRequest, XIQueryDeviceResponse, DeviceType as XIDeviceType, DeviceId, XISetFocusRequest, XIGetFocusRequest, XIGetFocusResponse, XIGrabDeviceResponse, XIGrabDeviceRequest, XIUngrabDeviceRequest, XIAllowEventsRequest, EventMode, XIPassiveGrabDeviceResponse, XIPassiveGrabDeviceRequest, GrabType, XIPassiveUngrabDeviceRequest, XIChangeHierarchyRequest, self, HierarchyChangeType, HierarchyChangeData, ChangeMode};
+use crate::coding::xinput2::{XIQueryDeviceRequest, XIQueryDeviceResponse, DeviceType as XIDeviceType, DeviceId, XISetFocusRequest, XIGetFocusRequest, XIGetFocusResponse, XIGrabDeviceResponse, XIGrabDeviceRequest, XIUngrabDeviceRequest, XIAllowEventsRequest, EventMode, XIPassiveGrabDeviceResponse, XIPassiveGrabDeviceRequest, GrabType, XIPassiveUngrabDeviceRequest, XIChangeHierarchyRequest, self, HierarchyChangeType, HierarchyChangeData, ChangeMode, XISetClientPointerRequest};
 pub use crate::coding::xinput2::{
     ValuatorMode,
     ScrollType,
@@ -70,38 +70,6 @@ impl<'a> DeviceType<'a> {
             XIDeviceType::FloatingSlave => DeviceType::FloatingSlave,
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct DeviceButton {
-    pub number: u16,
-    pub name: Atom,
-    pub is_down: bool,
-}
-
-#[derive(Clone, Debug)]
-pub struct DeviceValuator {
-    pub number: u16,
-    pub label: Atom,
-    pub min: I32F32,
-    pub max: I32F32,
-    pub value: I32F32,
-    pub resolution: u32,
-    pub mode: ValuatorMode,
-}
-
-#[derive(Clone, Debug)]
-pub struct DeviceScroll {
-    pub number: u16,
-    pub scroll_type: ScrollType,
-    pub flags: ScrollFlags,
-    pub increment: I32F32,
-}
-
-#[derive(Clone, Debug)]
-pub struct DeviceTouch {
-    pub mode: TouchMode,
-    pub num_touches: u8,
 }
 
 #[derive(Clone, Debug)]
@@ -227,7 +195,6 @@ impl<'a> Device<'a> {
         owner_events: bool,
         mask: XIEventMask,
     ) -> Result<GrabStatus> {
-        //todo: check mask is mapped properly
         let seq = send_request_xinput!(self.connection, XIOpcode::XIGrabDevice, false, XIGrabDeviceRequest {
             window: window.handle,
             time: time.0,
@@ -236,7 +203,7 @@ impl<'a> Device<'a> {
             mode: mode,
             paired_device_mode: paired_device_mode,
             owner_events: owner_events,
-            masks: vec![mask.0],
+            mask: mask,
         });
         let reply = receive_reply!(self.connection, seq, XIGrabDeviceResponse);
 
@@ -320,7 +287,7 @@ impl<'a> Device<'a> {
             },
             paired_device_mode: paired_device_mode,
             owner_events: owner_events,
-            masks: vec![mask.0],
+            mask: mask,
             detail: match &grab {
                 PassiveGrab::Button { button, .. } => *button,
                 PassiveGrab::Keycode { keycode, .. } => *keycode,
@@ -358,6 +325,14 @@ impl<'a> Device<'a> {
             modifiers: modifiers.as_ref().to_vec(),
         });
 
+        Ok(())
+    }
+
+    pub async fn set_as_client_pointer(&self) -> Result<()> {
+        send_request_xinput!(self.connection, XIOpcode::XISetClientPointer, true, XISetClientPointerRequest {
+            device: self.id,
+            window: 0,
+        });
         Ok(())
     }
 }

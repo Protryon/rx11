@@ -9,7 +9,6 @@ pub struct GetPropertyResult {
 
 #[derive(Debug, Clone)]
 pub enum PropertyValue {
-    None,
     U8(Vec<u8>),
     U16(Vec<u16>),
     U32(Vec<u32>),
@@ -18,6 +17,18 @@ pub enum PropertyValue {
 impl From<Vec<u8>> for PropertyValue {
     fn from(value: Vec<u8>) -> Self {
         PropertyValue::U8(value)
+    }
+}
+
+impl From<String> for PropertyValue {
+    fn from(value: String) -> Self {
+        PropertyValue::U8(value.into_bytes())
+    }
+}
+
+impl From<&str> for PropertyValue {
+    fn from(value: &str) -> Self {
+        PropertyValue::U8(value.as_bytes().to_vec())
     }
 }
 
@@ -35,7 +46,7 @@ impl From<Vec<u32>> for PropertyValue {
 
 impl<'a> Window<'a> {
     pub async fn set_property_string<S: AsRef<str>>(&self, property: Atom, value: S) -> Result<()> {
-        self.change_property(property, Atom::STRING, ChangePropertyMode::Replace, value.as_ref().as_bytes().to_vec()).await
+        self.replace_property(property, Atom::STRING, value.as_ref()).await
     }
 
     pub async fn append_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
@@ -50,16 +61,14 @@ impl<'a> Window<'a> {
         self.change_property(property, type_, ChangePropertyMode::Replace, data).await
     }
 
-    pub async fn change_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, mode: ChangePropertyMode, data: P) -> Result<()> {
+    async fn change_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, mode: ChangePropertyMode, data: P) -> Result<()> {
         let data = data.into();
         let (format, length) = match &data {
-            PropertyValue::None => bail!("cannot pass none value into change_property"),
             PropertyValue::U8(data) => (ChangePropertyFormat::L8, data.len()),
             PropertyValue::U16(data) => (ChangePropertyFormat::L16, data.len()),
             PropertyValue::U32(data) => (ChangePropertyFormat::L32, data.len()),
         };
         let raw_data = match data {
-            PropertyValue::None => unreachable!(),
             PropertyValue::U8(data) => data,
             PropertyValue::U16(data) => data.into_iter().flat_map(|x| x.to_be_bytes()).collect(),
             PropertyValue::U32(data) => data.into_iter().flat_map(|x| x.to_be_bytes()).collect(),
@@ -86,7 +95,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn get_property(&self, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
+    pub async fn get_property_full(&self, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
         let seq = send_request!(self.connection, delete as u8, GetProperty {
             window: self.handle,
             property: property.handle,
@@ -100,7 +109,7 @@ impl<'a> Window<'a> {
             type_: self.connection.get_atom_name(reply.type_).await?,
             bytes_after: reply.bytes_after,
             value: match format {
-                0 => PropertyValue::None,
+                0 => PropertyValue::U8(vec![]),
                 8 => PropertyValue::U8(reply.value),
                 16 => PropertyValue::U16(reply.value.chunks_exact(2).map(|x| u16::from_be_bytes(x.try_into().unwrap())).collect()),
                 32 => PropertyValue::U32(reply.value.chunks_exact(4).map(|x| u32::from_be_bytes(x.try_into().unwrap())).collect()),
@@ -109,8 +118,8 @@ impl<'a> Window<'a> {
         })
     }
 
-    pub async fn get_property_all(&self, property: Atom, type_: Option<Atom>, delete: bool) -> Result<GetPropertyResult> {
-        self.get_property(property, type_, 0, u32::MAX, delete).await
+    pub async fn get_property(&self, property: Atom, type_: Option<Atom>) -> Result<PropertyValue> {
+        self.get_property_full(property, type_, 0, u32::MAX, false).await.map(|x| x.value)
     }
 
     pub async fn list_properties(&self) -> Result<Vec<Atom>> {

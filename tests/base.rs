@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use rx11::{connection::X11Connection, requests::{WindowParamsBuilder, Atom, GContextParamsBuilder, Rectangle, WindowAttributesBuilder, EventMask, DeviceSpec, GBNDetail, NameDetail, MapPart, SetOfGroup, XKBEventsBuilder, StatePart, XIEventMask}};
+use rx11::{net::X11Connection, requests::{WindowParamsBuilder, Atom, GContextParamsBuilder, Rectangle, WindowAttributesBuilder, EventMask, DeviceSpec, GBNDetail, NameDetail, MapPart, SetOfGroup, XKBEventsBuilder, StatePart, XIEventMask}};
 
 
 #[tokio::test]
@@ -40,13 +40,13 @@ async fn test_x11() {
                 // EventMask::BUTTON5_MOTION |
                 // EventMask::BUTTON_MOTION | 
                 // EventMask::KEYMAP_STATE |
-                // EventMask::EXPOSURE |
-                // EventMask::VISIBILITY_CHANGE |
-                // EventMask::STRUCTURE_NOTIFY |
-                // EventMask::SUBSTRUCTURE_NOTIFY |
+                EventMask::EXPOSURE |
+                EventMask::VISIBILITY_CHANGE |
+                EventMask::STRUCTURE_NOTIFY |
+                EventMask::SUBSTRUCTURE_NOTIFY |
                 // EventMask::FOCUS_CHANGE |
-                // EventMask::PROPERTY_CHANGE |
-                // EventMask::COLORMAP_CHANGE |
+                EventMask::PROPERTY_CHANGE |
+                EventMask::COLORMAP_CHANGE |
                 EventMask::OWNER_GRAB_BUTTON
             )
             // EventMask::ALL & !EventMask::POINTER_MOTION_HINT
@@ -76,9 +76,9 @@ async fn test_x11() {
     let kbd = connected.xkb_get_keyboard_by_name(DeviceSpec::UseCoreKeyboard, GBNDetail::ALL, GBNDetail::ALL, false, "", "", "", "", "", "").await.unwrap();
     println!("keyboard = {:?}", kbd);
 
-    // connected.xkb_select_events(DeviceSpec::UseCoreKeyboard, XKBEventsBuilder::default()
-    //     .state_notify(StatePart::ALL)
-    //     .build().unwrap()).await.unwrap();
+    connected.xkb_select_events(DeviceSpec::UseCoreKeyboard, XKBEventsBuilder::default()
+        .state_notify(StatePart::ALL)
+        .build().unwrap()).await.unwrap();
 
     let devices = connected.all_xi_master_devices().query().await.unwrap();
     for device in devices {

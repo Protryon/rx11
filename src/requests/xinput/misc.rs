@@ -1,5 +1,5 @@
 
-use crate::{connection::ExtInfo, coding::xinput2::{XIQueryVersionRequest, XIQueryVersionResponse}};
+use crate::{net::ExtInfo, coding::xinput2::{XIQueryVersionRequest, XIQueryVersionResponse}};
 
 use super::*;
 

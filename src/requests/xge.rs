@@ -1,5 +1,5 @@
 
-use crate::{connection::ExtInfo, coding::{XgeQueryVersionRequest, XgeQueryVersionResponse, RequestBody}};
+use crate::{net::ExtInfo, coding::{XgeQueryVersionRequest, XgeQueryVersionResponse, RequestBody}};
 
 use super::*;
 

@@ -1,4 +1,4 @@
-use crate::{connection::ExtInfo, coding::xkb::{UseExtensionRequest, UseExtensionResponse}};
+use crate::{net::ExtInfo, coding::xkb::{UseExtensionRequest, UseExtensionResponse}};
 
 use super::*;
 

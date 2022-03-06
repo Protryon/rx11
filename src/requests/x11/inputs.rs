@@ -1,3 +1,4 @@
+use bitvec::{prelude::BitVec, order::Lsb0};
 use derive_builder::Builder;
 
 use super::*;
@@ -38,16 +39,16 @@ pub struct KeyboardControl {
     pub bell_percent: u8,
     pub bell_pitch: u16,
     pub bell_duration: u16,
-    pub auto_repeats: Vec<u8>,
+    pub auto_repeats: BitVec<u8, Lsb0>,
 }
 
 impl X11Connection {
-    pub async fn query_keymap(&self) -> Result<Vec<u8>> {
+    pub async fn query_keymap(&self) -> Result<BitVec<u8, Lsb0>> {
         let seq = send_request!(self, QueryKeymap {
         });
         let reply = receive_reply!(self, seq, QueryKeymapReply);
 
-        Ok(reply.keys)
+        Ok(BitVec::from_vec(reply.keys))
     }
 
     pub async fn change_keyboard_mapping(&self, first_keycode: u8, keysyms: Vec<Vec<Keysym>>) -> Result<()> {
@@ -131,7 +132,7 @@ impl X11Connection {
             bell_percent: reply.bell_percent,
             bell_pitch: reply.bell_pitch,
             bell_duration: reply.bell_duration,
-            auto_repeats: reply.auto_repeats,
+            auto_repeats: BitVec::from_vec(reply.auto_repeats),
         })
     }
 

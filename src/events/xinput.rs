@@ -1,6 +1,7 @@
 
-use crate::{coding::xinput2::{XIEventData, ModifierInfo, GroupInfo, self, XIEventCode, DeviceId}, connection::X11Connection, requests::{Device, Timestamp, DeviceClass, Window, DeviceType, Atom, TouchId}};
+use crate::{coding::xinput2::{XIEventData, ModifierInfo, GroupInfo, self, XIEventCode, DeviceId}, net::X11Connection, requests::{Device, Timestamp, DeviceClass, Window, DeviceType, Atom, TouchId}};
 use anyhow::Result;
+use bitvec::{order::Lsb0, prelude::BitVec};
 use fixed::types::{I16F16, I32F32};
 pub use crate::coding::xinput2::{
     ChangeReason,
@@ -143,7 +144,7 @@ impl<'a> DeviceChangedEvent<'a> {
             num_classes: 0,
             source_device: self.source_device.id,
             reason: self.reason,
-            classes: self.class.encode(),
+            classes: self.class.encode(self.device),
         }
     }
 }
@@ -164,8 +165,8 @@ pub struct KeyEvent<'a> {
     pub flags: KeyEventFlags,
     pub mods: ModifierInfo,
     pub group: GroupInfo,
-    pub buttons: Vec<u32>,
-    pub valuators: Vec<u32>,
+    pub buttons: BitVec<u32, Lsb0>,
+    pub valuators: BitVec<u32, Lsb0>,
     pub axis_values: Vec<I32F32>,
 }
 
@@ -201,8 +202,8 @@ impl<'a> KeyEvent<'a> {
             flags: event.flags,
             mods: event.mods,
             group: event.group,
-            buttons: event.buttons,
-            valuators: event.valuators,
+            buttons: BitVec::from_vec(event.buttons),
+            valuators: BitVec::from_vec(event.valuators),
             axis_values: event.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -225,8 +226,8 @@ impl<'a> KeyEvent<'a> {
             flags: self.flags,
             mods: self.mods,
             group: self.group,
-            buttons: self.buttons,
-            valuators: self.valuators,
+            buttons: self.buttons.into_vec(),
+            valuators: self.valuators.into_vec(),
             axis_values: self.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -248,8 +249,8 @@ pub struct ButtonEvent<'a> {
     pub flags: PointerEventFlags,
     pub mods: ModifierInfo,
     pub group: GroupInfo,
-    pub buttons: Vec<u32>,
-    pub valuators: Vec<u32>,
+    pub buttons: BitVec<u32, Lsb0>,
+    pub valuators: BitVec<u32, Lsb0>,
     pub axis_values: Vec<I32F32>,
 }
 
@@ -285,8 +286,8 @@ impl<'a> ButtonEvent<'a> {
             flags: event.flags,
             mods: event.mods,
             group: event.group,
-            buttons: event.buttons,
-            valuators: event.valuators,
+            buttons: BitVec::from_vec(event.buttons),
+            valuators: BitVec::from_vec(event.valuators),
             axis_values: event.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -309,8 +310,8 @@ impl<'a> ButtonEvent<'a> {
             flags: self.flags,
             mods: self.mods,
             group: self.group,
-            buttons: self.buttons,
-            valuators: self.valuators,
+            buttons: self.buttons.into_vec(),
+            valuators: self.valuators.into_vec(),
             axis_values: self.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -334,7 +335,7 @@ pub struct TransitionEvent<'a> {
     pub focus: bool,
     pub mods: ModifierInfo,
     pub group: GroupInfo,
-    pub buttons: Vec<u32>,
+    pub buttons: BitVec<u32, Lsb0>,
 }
 
 impl<'a> TransitionEvent<'a> {
@@ -371,7 +372,7 @@ impl<'a> TransitionEvent<'a> {
             focus: event.focus,
             mods: event.mods,
             group: event.group,
-            buttons: event.buttons,
+            buttons: BitVec::from_vec(event.buttons),
         }
     }
 
@@ -394,7 +395,7 @@ impl<'a> TransitionEvent<'a> {
             focus: self.focus,
             mods: self.mods,
             group: self.group,
-            buttons: self.buttons,
+            buttons: self.buttons.into_vec(),
         }
     }
 }
@@ -510,7 +511,7 @@ pub struct RawKeyEvent<'a> {
     pub keycode: u32,
     pub source_device: Device<'a>,
     pub flags: KeyEventFlags,
-    pub valuators: Vec<u32>,
+    pub valuators: BitVec<u32, Lsb0>,
     pub axis_values: Vec<I32F32>,
     pub axis_values_raw: Vec<I32F32>,
 }
@@ -530,7 +531,7 @@ impl<'a> RawKeyEvent<'a> {
                 connection,
             },
             flags: event.flags,
-            valuators: event.valuators,
+            valuators: BitVec::from_vec(event.valuators),
             axis_values: axis_values.drain(..axis_values.len() / 2).collect(),
             axis_values_raw: axis_values,
         }
@@ -545,7 +546,7 @@ impl<'a> RawKeyEvent<'a> {
             source_device: self.source_device.id,
             flags: self.flags,
             valuators_len: 0,
-            valuators: self.valuators,
+            valuators: self.valuators.into_vec(),
             combined_axis_values: self.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -558,7 +559,7 @@ pub struct RawButtonEvent<'a> {
     pub button: u32,
     pub source_device: Device<'a>,
     pub flags: PointerEventFlags,
-    pub valuators: Vec<u32>,
+    pub valuators: BitVec<u32, Lsb0>,
     pub axis_values: Vec<I32F32>,
     pub axis_values_raw: Vec<I32F32>,
 }
@@ -578,7 +579,7 @@ impl<'a> RawButtonEvent<'a> {
                 connection,
             },
             flags: event.flags,
-            valuators: event.valuators,
+            valuators: BitVec::from_vec(event.valuators),
             axis_values: axis_values.drain(..axis_values.len() / 2).collect(),
             axis_values_raw: axis_values,
         }
@@ -593,7 +594,7 @@ impl<'a> RawButtonEvent<'a> {
             source_device: self.source_device.id,
             flags: self.flags,
             valuators_len: 0,
-            valuators: self.valuators,
+            valuators: self.valuators.into_vec(),
             combined_axis_values: self.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -615,8 +616,8 @@ pub struct TouchEvent<'a> {
     pub flags: TouchEventFlags,
     pub mods: ModifierInfo,
     pub group: GroupInfo,
-    pub buttons: Vec<u32>,
-    pub valuators: Vec<u32>,
+    pub buttons: BitVec<u32, Lsb0>,
+    pub valuators: BitVec<u32, Lsb0>,
     pub axis_values: Vec<I32F32>,
 }
 
@@ -652,8 +653,8 @@ impl<'a> TouchEvent<'a> {
             flags: event.flags,
             mods: event.mods,
             group: event.group,
-            buttons: event.buttons,
-            valuators: event.valuators,
+            buttons: BitVec::from_vec(event.buttons),
+            valuators: BitVec::from_vec(event.valuators),
             axis_values: event.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -676,8 +677,8 @@ impl<'a> TouchEvent<'a> {
             flags: self.flags,
             mods: self.mods,
             group: self.group,
-            buttons: self.buttons,
-            valuators: self.valuators,
+            buttons: self.buttons.into_vec(),
+            valuators: self.valuators.into_vec(),
             axis_values: self.axis_values.into_iter().map(Into::into).collect(),
         }
     }
@@ -745,7 +746,7 @@ pub struct RawTouchEvent<'a> {
     pub touch_id: TouchId,
     pub source_device: Device<'a>,
     pub flags: TouchEventFlags,
-    pub valuators: Vec<u32>,
+    pub valuators: BitVec<u32, Lsb0>,
     pub axis_values: Vec<I32F32>,
     pub axis_values_raw: Vec<I32F32>,
 }
@@ -765,7 +766,7 @@ impl<'a> RawTouchEvent<'a> {
                 connection,
             },
             flags: event.flags,
-            valuators: event.valuators,
+            valuators: BitVec::from_vec(event.valuators),
             axis_values: axis_values.drain(..axis_values.len() / 2).collect(),
             axis_values_raw: axis_values,
         }
@@ -780,7 +781,7 @@ impl<'a> RawTouchEvent<'a> {
             source_device: self.source_device.id,
             flags: self.flags,
             valuators_len: 0,
-            valuators: self.valuators,
+            valuators: self.valuators.into_vec(),
             combined_axis_values: self.axis_values.into_iter().map(Into::into).collect(),
         }
     }
