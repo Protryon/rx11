@@ -163,10 +163,10 @@ impl<'a> Device<'a> {
         Ok(out)
     }
 
-    pub async fn set_focus(self, window: Window<'a>, time: Timestamp) -> Result<()> {
+    pub async fn set_focus(self, window: Option<Window<'a>>, time: Timestamp) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XISetFocus, true, XISetFocusRequest {
             device: self.id,
-            window: window.handle,
+            window: window.map(|x| x.handle).unwrap_or(0),
             time: time.0,
         });
 

@@ -26,7 +26,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn list_hosts(&self) -> Result<HostList> {
+    pub async fn list_acl_hosts(&self) -> Result<HostList> {
         let seq = send_request!(self, ListHosts {
         });
         let (reply, acl_enabled) = receive_reply!(self, seq, ListHostsReply, fetched);

@@ -43,7 +43,7 @@ pub struct KeyboardControl {
 }
 
 impl X11Connection {
-    pub async fn query_keymap(&self) -> Result<BitVec<u8, Lsb0>> {
+    pub async fn legacy_query_keymap(&self) -> Result<BitVec<u8, Lsb0>> {
         let seq = send_request!(self, QueryKeymap {
         });
         let reply = receive_reply!(self, seq, QueryKeymapReply);
@@ -51,7 +51,7 @@ impl X11Connection {
         Ok(BitVec::from_vec(reply.keys))
     }
 
-    pub async fn change_keyboard_mapping(&self, first_keycode: u8, keysyms: Vec<Vec<Keysym>>) -> Result<()> {
+    pub async fn legacy_change_keyboard_mapping(&self, first_keycode: u8, keysyms: Vec<Vec<Keysym>>) -> Result<()> {
         let keysyms_per_keycode = keysyms.get(0).map(|x| x.len()).unwrap_or(0);
         if keysyms_per_keycode > u8::MAX as usize {
             bail!("cannot have >255 keysyms per keycode");
@@ -71,7 +71,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn get_keyboard_mapping(&self, first_keycode: u8, count: u8) -> Result<Vec<Vec<Keysym>>> {
+    pub async fn legacy_get_keyboard_mapping(&self, first_keycode: u8, count: u8) -> Result<Vec<Vec<Keysym>>> {
         let seq = send_request!(self, GetKeyboardMapping {
             first_keycode: first_keycode,
             count: count,
@@ -80,7 +80,7 @@ impl X11Connection {
         Ok(reply.keysyms.chunks_exact(keysyms_per_keycode as usize).map(|x| x.iter().copied().map(Keysym).collect()).collect())
     }
 
-    pub async fn change_keyboard_control(&self, params: KeyboardControlParams) -> Result<()> {
+    pub async fn legacy_change_keyboard_control(&self, params: KeyboardControlParams) -> Result<()> {
         let mut bitmask = ChangeKeyboardControlBitmask::default();
         if params.key_click_percent.is_some() {
             bitmask |= ChangeKeyboardControlBitmask::KEY_CLICK_PERCENT;
@@ -121,7 +121,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn get_keyboard_control(&self) -> Result<KeyboardControl> {
+    pub async fn legacy_get_keyboard_control(&self) -> Result<KeyboardControl> {
         let seq = send_request!(self, GetKeyboardControl {
         });
         let (reply, global_auto_repeat) = receive_reply!(self, seq, GetKeyboardControlReply, fetched);
@@ -136,13 +136,13 @@ impl X11Connection {
         })
     }
 
-    pub async fn bell(&self, percent: i8) -> Result<()> {
+    pub async fn legacy_bell(&self, percent: i8) -> Result<()> {
         send_request!(self, percent as u8, Bell {
         });
         Ok(())
     }
 
-    pub async fn change_pointer_control(&self, acceleration_numerator: i16, acceleration_denominator: i16, threshold: i16, do_acceleration: bool, do_threshold: bool) -> Result<()> {
+    pub async fn legacy_change_pointer_control(&self, acceleration_numerator: i16, acceleration_denominator: i16, threshold: i16, do_acceleration: bool, do_threshold: bool) -> Result<()> {
         send_request!(self, ChangePointerControl {
             acceleration_numerator: acceleration_numerator,
             acceleration_denominator: acceleration_denominator,
@@ -153,14 +153,14 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn get_pointer_control(&self) -> Result<GetPointerControlReply> {
+    pub async fn legacy_get_pointer_control(&self) -> Result<GetPointerControlReply> {
         let seq = send_request!(self, GetPointerControl {
         });
         let reply = receive_reply!(self, seq, GetPointerControlReply);
         Ok(reply)
     }
 
-    pub async fn set_pointer_mapping(&self, map: Vec<u8>) -> Result<SetMappingStatus> {
+    pub async fn legacy_set_pointer_mapping(&self, map: Vec<u8>) -> Result<SetMappingStatus> {
         if map.len() > u8::MAX as usize {
             bail!("map max len is 255");
         }
@@ -171,14 +171,14 @@ impl X11Connection {
         Ok(SetMappingStatus::decode_sync(&mut &[status][..])?)
     }
 
-    pub async fn get_pointer_mapping(&self) -> Result<Vec<u8>> {
+    pub async fn legacy_get_pointer_mapping(&self) -> Result<Vec<u8>> {
         let seq = send_request!(self, GetPointerMapping {
         });
         let reply = receive_reply!(self, seq, GetPointerMappingReply, doubled);
         Ok(reply.map)
     }
 
-    pub async fn set_modifier_mapping(&self, keycodes_per_modifier: u8, keycodes: Vec<u8>) -> Result<bool> {
+    pub async fn legacy_set_modifier_mapping(&self, keycodes_per_modifier: u8, keycodes: Vec<u8>) -> Result<bool> {
         let seq = send_request!(self, keycodes_per_modifier, SetModifierMapping {
             keycodes: keycodes,
         });
@@ -186,7 +186,7 @@ impl X11Connection {
         Ok(status != 0)
     }
 
-    pub async fn get_modifier_mapping(&self) -> Result<Vec<Vec<u8>>> {
+    pub async fn legacy_get_modifier_mapping(&self) -> Result<Vec<Vec<u8>>> {
         let seq = send_request!(self, GetModifierMapping {
         });
         let (reply, keycodes_per_modifier) = receive_reply!(self, seq, GetModifierMappingReply, double_fetched);
