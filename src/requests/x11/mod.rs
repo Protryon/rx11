@@ -20,7 +20,7 @@ mod cursor;
 pub use cursor::*;
 
 mod visual;
-pub use visual::{*, Depth, VisualType};
+pub use visual::{Depth, VisualType, *};
 
 mod color;
 pub use color::*;
@@ -44,7 +44,7 @@ mod properties;
 pub use properties::*;
 
 mod event;
-pub use event::{*, EventMask};
+pub use event::{EventMask, *};
 
 mod grab;
 pub use grab::*;
@@ -53,7 +53,7 @@ mod pointer;
 pub use pointer::*;
 
 mod gcontext;
-pub use gcontext::{*, Rectangle};
+pub use gcontext::*;
 
 mod inputs;
 pub use inputs::*;

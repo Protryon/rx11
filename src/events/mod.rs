@@ -6,3 +6,6 @@ pub use xkb::*;
 
 pub mod xinput;
 pub use xinput::*;
+
+pub mod xfixes;
+pub use xfixes::*;

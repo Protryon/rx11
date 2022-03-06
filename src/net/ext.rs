@@ -7,6 +7,7 @@ pub(crate) struct ExtInfo {
     pub major_opcode: u8,
     pub event_start: u8,
     pub error_start: u8,
+    pub event_count: u8,
 }
 
 impl X11Connection {
@@ -19,8 +20,11 @@ impl X11Connection {
             .find(|entry| entry.value().major_opcode == opcode)
     }
 
-    pub(crate) fn get_ext_info_by_event_start(&self, code: u8) -> Option<RefMulti<'_, String, ExtInfo>> {
+    pub(crate) fn get_ext_info_by_event_code(&self, code: u8) -> Option<RefMulti<'_, String, ExtInfo>> {
         self.0.registered_extensions.iter()
-            .find(|entry| entry.value().event_start == code)
+            .find(|entry| {
+                let value = entry.value();
+                value.event_start <= code && value.event_start + value.event_count > code
+            })
     }
 }

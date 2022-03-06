@@ -1,8 +1,6 @@
 use super::*;
+use crate::coding::xinput2::XIOpcode;
 use crate::coding::RequestBody;
-use crate::coding::xinput2::{
-    XIOpcode,
-};
 pub use fixed::types::{I16F16, I32F32};
 
 pub const XINPUT_EXT_NAME: &str = "XInputExtension";
@@ -56,6 +54,8 @@ impl From<I16F16> for crate::coding::xinput2::Fp1616 {
 
 #[derive(Clone, Copy, Debug)]
 pub struct TouchId(pub(crate) u32);
+#[derive(Clone, Copy, Debug)]
+pub struct BarrierEventId(pub(crate) u32);
 
 mod misc;
 pub use misc::*;
@@ -77,39 +77,3 @@ pub use property::*;
 
 mod class;
 pub use class::*;
-
-/*
-
-type XIOpcode = enum u8 {
-    // pointer
-    // XIQueryPointer,
-    // XIWarpPointer,
-    // XIChangeCursor,
-    // XIChangeHierarchy,
-
-    // window
-    // XISetClientPointer,
-    // XIGetClientPointer,
-    // XISelectEvents,
-    // XIGetSelectedEvents,
-
-    // device
-    // XIQueryDevice,
-    // XISetFocus,
-    // XIGetFocus,
-    // XIGrabDevice,
-    // XIUngrabDevice,
-    // XIAllowEvents,
-    // XIPassiveGrabDevice,
-    // XIPassiveUngrabDevice,
-
-    // property
-    // XIListProperties,
-    // XIChangeProperty,
-    // XIDeleteProperty,
-    // XIGetProperty,
-
-    // barrier
-    XIBarrierReleasePointer,
-};
-*/

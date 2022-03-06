@@ -1,3 +1,4 @@
+import_ffi utf8 as type;
 
 type QueryVersionRequest = container {
     client_major_version: u32,
@@ -47,6 +48,7 @@ type SelectionEventMask = bitfield u32 {
 
 type SelectionNotifyEvent = container {
     subtype: SelectionEventType,
+    sequence_number: u16,
     window: u32,
     owner_window: u32,
     selection_atom: u32,
@@ -71,6 +73,7 @@ type CursorNotifyMask = bitfield u32 {
 
 type CursorNotifyEvent = container {
     subtype: CursorNotifyType,
+    sequence_number: u16,
     window: u32,
     cursor_serial: u32,
     time: u32,
@@ -95,7 +98,7 @@ type GetCursorImageResponse = container {
     yhot: u16,
     cursor_serial: u32,
     .pad: 8,
-    cursor_image: u8[width * height],
+    cursor_image: u32[width * height],
 };
 
 type XFErrorCode = enum u8 {
@@ -175,7 +178,7 @@ type InvertRegionRequest = container {
     dst_region: u32,
 };
 
-type TranslateRequest = container {
+type TranslateRegionRequest = container {
     region: u32,
     dx: i16,
     dy: i16,
@@ -251,7 +254,7 @@ type GetCursorImageAndNameResponse = container {
     cursor_name_atom: u32,
     name_len: u16 = len(name) :> u16,
     .pad: 2,
-    cursor_image: u8[width * height],
+    cursor_image: u32[width * height],
     name: utf8(name_len),
 };
 
@@ -277,11 +280,11 @@ type ExpandRegionRequest = container {
 };
 
 type HideCursorRequest = container {
-    cursor: u32,
+    window: u32,
 };
 
 type ShowCursorRequest = container {
-    cursor: u32,
+    window: u32,
 };
 
 type BarrierDirections = bitfield u32 {
@@ -306,4 +309,52 @@ type CreatePointerBarrierRequest = container {
 
 type DeletePointerBarrierRequest = container {
     barrier: u32,
+};
+
+// opcode
+
+type XFOpcode = enum u8 {
+    QueryVersion = 0,
+    ChangeSaveSet,
+    SelectSelectionInput,
+    SelectCursorInput,
+    GetCursorImage,
+    CreateRegion,
+    CreateRegionFromBitmap,
+    CreateRegionFromWindow,
+    CreateRegionFromGC,
+    CreateRegionFromPicture,
+    DestroyRegion,
+    SetRegion,
+    CopyRegion,
+    UnionRegion,
+    IntersectRegion,
+    SubtractRegion,
+    InvertRegion,
+    TranslateRegion,
+    RegionExtents,
+    FetchRegion,
+    SetGCClipRegion,
+    SetWindowShapeRegion,
+    SetPictureClipRegion,
+    SetCursorName,
+    GetCursorName,
+    GetCursorImageAndName,
+    ChangeCursor,
+    ChangeCursorByName,
+    ExpandRegion,
+    HideCursor,
+    ShowCursor,
+    CreatePointerBarrier,
+    DeletePointerBarrier,
+};
+
+type XFEventCode = enum u8 {
+    SelectionNotify = 0,
+    CursorNotify,
+};
+
+type XFEventData(code: XFEventCode) = container +tagged_enum {
+    SelectionNotify: SelectionNotifyEvent { code == XFEventCode::SelectionNotify },
+    CursorNotify: CursorNotifyEvent { code == XFEventCode::CursorNotify },
 };

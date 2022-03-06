@@ -98,6 +98,12 @@ impl X11Connection {
         futures::future::join_all(atoms).await.into_iter().flat_map(|x| x.transpose()).collect::<Result<_>>()
     }
 
+    pub(crate) fn local_intern_atom(&self, raw_atom: u32, name: impl AsRef<str>) {
+        let name = Intern::new(name.as_ref().to_string()).as_ref();
+        self.0.known_atoms.insert(name, raw_atom);
+        self.0.known_atoms_inverse.insert(raw_atom, name);
+    }
+
     pub(crate) fn register_const_atoms(&self) {
         for atom in Atom::ALL_CONST_ATOMS {
             self.0.known_atoms.insert(atom.name, atom.handle);

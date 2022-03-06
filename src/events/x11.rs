@@ -25,6 +25,8 @@ pub use crate::coding::x11::{
     EventCode,
 };
 
+use super::XFEvent;
+
 #[derive(Clone, Debug)]
 pub enum Event<'a> {
     KeyPress(KeyEvent<'a>),
@@ -61,6 +63,7 @@ pub enum Event<'a> {
     ClientMessage(ClientMessageEvent<'a>),
     MappingNotify(MappingNotifyEvent),
     XKB(XKBEvent<'a>),
+    XF(XFEvent<'a>),
     // generic event
     XI(XIEvent<'a>),
     UnknownCore(u8, Vec<u8>),
@@ -102,14 +105,13 @@ impl<'a> Event<'a> {
             Event::ColormapNotify(_) => EventCode::ColormapNotify as u8,
             Event::ClientMessage(_) => EventCode::ClientMessage as u8,
             Event::MappingNotify(_) => EventCode::MappingNotify as u8,
-            Event::XKB(_) => connection.get_ext_info(XKB_EXT_NAME).ok_or_else(|| anyhow!("missing xkb extension while sending event"))?.major_opcode,
+            Event::XF(e) => e.code() as u8 + connection.get_ext_info(XFIXES_EXT_NAME).ok_or_else(|| anyhow!("missing xfixes extension while sending event"))?.event_start,
+            Event::XKB(_) => connection.get_ext_info(XKB_EXT_NAME).ok_or_else(|| anyhow!("missing xkb extension while sending event"))?.event_start,
             Event::XI(_) => EventCode::Generic as u8,
             Event::UnknownCore(code, _) => *code,
         })
     }
-}
 
-impl<'a> Event<'a> {
     pub(crate) async fn from_protocol(connection: &'a X11Connection, code: u8, from: coding::x11::Event) -> Result<Event<'a>> {
         use coding::x11::Event::*;
         Ok(match from {
@@ -158,11 +160,14 @@ impl<'a> Event<'a> {
             },
             UnknownCore(e) => Event::UnknownCore(code, e.into()),
             Ext(e) => {
-                let extension = connection.get_ext_info_by_event_start(code)
+                let extension = connection.get_ext_info_by_event_code(code)
                     .ok_or_else(|| anyhow!("received ext event for unknown extension"))?;
                 match &**extension.key() {
                     crate::requests::XKB_EXT_NAME => {
                         return Ok(Event::XKB(XKBEvent::from_protocol(connection, e).await?));
+                    },
+                    crate::requests::XFIXES_EXT_NAME => {
+                        return Ok(Event::XF(XFEvent::from_protocol(connection, e, code - extension.event_start).await?));
                     },
                     _ => bail!("unimplemented event for extension {}", extension.key()),
                 }
@@ -211,6 +216,13 @@ impl<'a> Event<'a> {
                 let event = e.to_protocol();
                 let mut data_raw = vec![];
                 event.encode_sync(&mut data_raw)?;
+                Ext(data_raw)
+            },
+            Event::XF(e) => {
+                let code = e.code();
+                let event = e.to_protocol();
+                let mut data_raw = vec![];
+                event.encode_sync(&mut data_raw, code)?;
                 Ext(data_raw)
             },
             Event::XI(e) => {

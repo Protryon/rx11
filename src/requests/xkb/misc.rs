@@ -11,6 +11,7 @@ impl X11Connection {
             major_opcode: queried.major_opcode,
             event_start: queried.first_event,
             error_start: queried.first_error,
+            event_count: XKB_EVENT_COUNT,
         });
 
         // enable extension

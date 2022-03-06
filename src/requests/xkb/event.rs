@@ -1,19 +1,11 @@
-
 use derive_builder::Builder;
 
 use super::*;
 
-use crate::coding::xkb::{XKBEventMask, SelectEventsRequest, SelectEventDetails};
 pub use crate::coding::xkb::{
-    NKNDetail,
-    MapPart,
-    StatePart,
-    Control,
-    NameDetail,
-    CMDetail,
-    AXNDetail,
-    XIFeature,
+    AXNDetail, CMDetail, Control, MapPart, NKNDetail, NameDetail, StatePart, XIFeature,
 };
+use crate::coding::xkb::{SelectEventDetails, SelectEventsRequest, XKBEventMask};
 
 impl Affectable for NKNDetail {
     const FULL: Self = Self::ALL;
@@ -133,38 +125,43 @@ impl X11Connection {
         if events.extension_device_notify.is_some() {
             affect_events |= XKBEventMask::EXTENSION_DEVICE_NOTIFY;
         }
-        send_request_xkb!(self, XKBOpcode::SelectEvents, true, SelectEventsRequest {
-            device_spec: device.into(),
-            affect_which: affect_events,
-            clear: XKBEventMask::ZERO,
-            select_all: XKBEventMask::ZERO,
-            affect_map: events.map_notify.map(|x| x.affect).unwrap_or(MapPart::ZERO),
-            map: events.map_notify.map(|x| x.value).unwrap_or(MapPart::ZERO),
-            details: SelectEventDetails {
-                affect_new_keyboard: events.new_keyboard_notify.map(|x| x.affect),
-                new_keyboard_details: events.new_keyboard_notify.map(|x| x.value),
-                affect_state: events.state_notify.map(|x| x.affect),
-                state_details: events.state_notify.map(|x| x.value),
-                affect_controls: events.controls_notify.map(|x| x.affect),
-                control_details: events.controls_notify.map(|x| x.value),
-                affect_indicator_map: events.indicator_map_notify.map(|x| x.affect),
-                indicator_map_details: events.indicator_map_notify.map(|x| x.value),
-                affect_indicator_state: events.indicator_state_notify.map(|x| x.affect),
-                indicator_state_details: events.indicator_state_notify.map(|x| x.value),
-                affect_names: events.names_notify.map(|x| x.affect),
-                names_details: events.names_notify.map(|x| x.value),
-                affect_compat: events.compat_map_notify.map(|x| x.affect),
-                compat_details: events.compat_map_notify.map(|x| x.value),
-                affect_bell: events.bell_notify.map(|x| x.affect),
-                bell_details: events.bell_notify.map(|x| x.value),
-                affect_msg_details: events.action_message.map(|x| x.affect),
-                msg_details: events.action_message.map(|x| x.value),
-                affect_access_x: events.access_x_notify.map(|x| x.affect),
-                access_x_details: events.access_x_notify.map(|x| x.value),
-                affect_extension_device: events.extension_device_notify.map(|x| x.affect),
-                extension_device_details: events.extension_device_notify.map(|x| x.value),
-            },
-        });
+        send_request_xkb!(
+            self,
+            XKBOpcode::SelectEvents,
+            true,
+            SelectEventsRequest {
+                device_spec: device.into(),
+                affect_which: affect_events,
+                clear: XKBEventMask::ZERO,
+                select_all: XKBEventMask::ZERO,
+                affect_map: events.map_notify.map(|x| x.affect).unwrap_or(MapPart::ZERO),
+                map: events.map_notify.map(|x| x.value).unwrap_or(MapPart::ZERO),
+                details: SelectEventDetails {
+                    affect_new_keyboard: events.new_keyboard_notify.map(|x| x.affect),
+                    new_keyboard_details: events.new_keyboard_notify.map(|x| x.value),
+                    affect_state: events.state_notify.map(|x| x.affect),
+                    state_details: events.state_notify.map(|x| x.value),
+                    affect_controls: events.controls_notify.map(|x| x.affect),
+                    control_details: events.controls_notify.map(|x| x.value),
+                    affect_indicator_map: events.indicator_map_notify.map(|x| x.affect),
+                    indicator_map_details: events.indicator_map_notify.map(|x| x.value),
+                    affect_indicator_state: events.indicator_state_notify.map(|x| x.affect),
+                    indicator_state_details: events.indicator_state_notify.map(|x| x.value),
+                    affect_names: events.names_notify.map(|x| x.affect),
+                    names_details: events.names_notify.map(|x| x.value),
+                    affect_compat: events.compat_map_notify.map(|x| x.affect),
+                    compat_details: events.compat_map_notify.map(|x| x.value),
+                    affect_bell: events.bell_notify.map(|x| x.affect),
+                    bell_details: events.bell_notify.map(|x| x.value),
+                    affect_msg_details: events.action_message.map(|x| x.affect),
+                    msg_details: events.action_message.map(|x| x.value),
+                    affect_access_x: events.access_x_notify.map(|x| x.affect),
+                    access_x_details: events.access_x_notify.map(|x| x.value),
+                    affect_extension_device: events.extension_device_notify.map(|x| x.affect),
+                    extension_device_details: events.extension_device_notify.map(|x| x.value),
+                },
+            }
+        );
         Ok(())
     }
 }

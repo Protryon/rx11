@@ -5,6 +5,7 @@ use crate::coding::xkb::{
 };
 
 pub const XKB_EXT_NAME: &str = "XKEYBOARD";
+const XKB_EVENT_COUNT: u8 = 1;
 
 macro_rules! send_request_xkb {
     ($self_:expr, $opcode:expr, $is_void:expr, $name:ident { $($key:ident: $value:expr,)* }) => {

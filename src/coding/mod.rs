@@ -6,3 +6,6 @@ pub use xkb_proto::*;
 
 mod xinput_proto;
 pub use xinput_proto::*;
+
+mod xfixes_proto;
+pub use xfixes_proto::*;

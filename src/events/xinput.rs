@@ -1,5 +1,5 @@
 
-use crate::{coding::xinput2::{XIEventData, ModifierInfo, GroupInfo, self, XIEventCode, DeviceId}, net::X11Connection, requests::{Device, Timestamp, DeviceClass, Window, DeviceType, Atom, TouchId}};
+use crate::{coding::xinput2::{XIEventData, ModifierInfo, GroupInfo, self, XIEventCode, DeviceId}, net::X11Connection, requests::{Device, Timestamp, DeviceClass, Window, DeviceType, Atom, TouchId, Barrier, BarrierEventId}};
 use anyhow::Result;
 use bitvec::{order::Lsb0, prelude::BitVec};
 use fixed::types::{I16F16, I32F32};
@@ -791,10 +791,10 @@ impl<'a> RawTouchEvent<'a> {
 pub struct BarrierEvent<'a> {
     pub device: Device<'a>,
     pub time: Timestamp,
-    pub event_id: u32,
+    pub event_id: BarrierEventId,
     pub root_window: Window<'a>,
     pub event_window: Window<'a>,
-    pub barrier: u32,
+    pub barrier: Barrier<'a>,
     pub dtime: u32,
     pub flags: BarrierFlags,
     pub source_device: Device<'a>,
@@ -812,7 +812,7 @@ impl<'a> BarrierEvent<'a> {
                 connection,
             },
             time: Timestamp(event.time),
-            event_id: event.event_id,
+            event_id: BarrierEventId(event.event_id),
             root_window: Window {
                 handle: event.root_window,
                 connection,
@@ -821,7 +821,10 @@ impl<'a> BarrierEvent<'a> {
                 handle: event.event_window,
                 connection,
             },
-            barrier: event.barrier,
+            barrier: Barrier {
+                handle: event.barrier,
+                connection,
+            },
             dtime: event.dtime,
             flags: event.flags,
             source_device: Device {
@@ -839,10 +842,10 @@ impl<'a> BarrierEvent<'a> {
         xinput2::BarrierEvent {
             device: self.device.id,
             time: self.time.0,
-            event_id: self.event_id,
+            event_id: self.event_id.0,
             root_window: self.root_window.handle,
             event_window: self.event_window.handle,
-            barrier: self.barrier,
+            barrier: self.barrier.handle,
             dtime: self.dtime,
             flags: self.flags,
             source_device: self.source_device.id,

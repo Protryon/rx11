@@ -1,11 +1,8 @@
 
 ## Roadmap
 
-*Finish `xinput`
-  * Barrier Request (needs xfixes really)
-    * Integrate xfixes with `BarrierEvent`
 * Implement `xfixes`
-  * api
+  * test more
 * Implement `xrandr`
   * api
 * Implement `shape`

@@ -3,26 +3,11 @@ use derive_builder::Builder;
 use super::*;
 
 pub use crate::coding::x11::{
-    GCFunction,
-    GCBitmask,
-    LineStyle,
-    CapStyle,
-    JoinStyle,
-    FillStyle,
-    ArcMode,
-    SubwindowMode,
-    Rectangle,
-    ClipSorting,
-    CoordinateMode,
-    Point,
-    Segment,
-    Arc,
-    Shape,
-    ImageFormat,
+    Arc, ArcMode, CapStyle, ClipSorting, CoordinateMode, FillStyle, GCBitmask, GCFunction,
+    ImageFormat, JoinStyle, LineStyle, Point, Segment, Shape, SubwindowMode,
 };
 
-#[derive(Clone, Copy)]
-#[derive(derivative::Derivative)]
+#[derive(Clone, Copy, derivative::Derivative)]
 #[derivative(Debug)]
 pub struct GContext<'a> {
     pub(crate) handle: u32,
@@ -154,7 +139,7 @@ impl<'a> Into<GCAttributes> for GContextParams<'a> {
         }
         if let Some(clip_mask) = self.clip_mask {
             attributes.bitmask |= GCBitmask::CLIP_MASK;
-            attributes.clip_mask= Some(clip_mask.handle);
+            attributes.clip_mask = Some(clip_mask.handle);
         }
         if self.dash_offset != 0 {
             attributes.bitmask |= GCBitmask::DASH_OFFSET;
@@ -188,14 +173,21 @@ pub enum TextItem16<'a> {
 }
 
 impl X11Connection {
-    pub async fn create_gcontext(&self, drawable: impl Into<Drawable<'_>>, params: GContextParams<'_>) -> Result<GContext<'_>> {
+    pub async fn create_gcontext(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        params: GContextParams<'_>,
+    ) -> Result<GContext<'_>> {
         let gcontext = self.new_resource_id();
-        
-        send_request!(self, CreateGC {
-            gcontext: gcontext,
-            drawable: drawable.into().handle(),
-            attributes: params.into(),
-        });
+
+        send_request!(
+            self,
+            CreateGC {
+                gcontext: gcontext,
+                drawable: drawable.into().handle(),
+                attributes: params.into(),
+            }
+        );
         Ok(GContext {
             handle: gcontext,
             connection: self,
@@ -204,195 +196,340 @@ impl X11Connection {
 }
 
 impl<'a> Window<'a> {
-    pub async fn clear_area(&self, exposures: bool, x: i16, y: i16, width: u16, height: u16) -> Result<()> {
-        send_request!(self.connection, exposures as u8, ClearArea {
-            window: self.handle,
-            x: x,
-            y: y,
-            width: width,
-            height: height,
-        });
+    pub async fn clear_area(
+        &self,
+        exposures: bool,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            exposures as u8,
+            ClearArea {
+                window: self.handle,
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+            }
+        );
         Ok(())
     }
 }
 
 impl<'a> GContext<'a> {
-
     pub async fn change_attributes(&self, params: GContextParams<'_>) -> Result<()> {
-        send_request!(self.connection, ChangeGC {
-            gcontext: self.handle,
-            attributes: params.into(),
-        });
+        send_request!(
+            self.connection,
+            ChangeGC {
+                gcontext: self.handle,
+                attributes: params.into(),
+            }
+        );
         Ok(())
     }
 
     pub async fn copy_to(&self, dst_gcontext: GContext<'_>, bitmask: GCBitmask) -> Result<()> {
-        send_request!(self.connection, CopyGC {
-            src_gcontext: self.handle,
-            dst_gcontext: dst_gcontext.handle,
-            bitmask: bitmask,
-        });
+        send_request!(
+            self.connection,
+            CopyGC {
+                src_gcontext: self.handle,
+                dst_gcontext: dst_gcontext.handle,
+                bitmask: bitmask,
+            }
+        );
         Ok(())
     }
 
     pub async fn set_dashes(&self, dash_offset: u16, dashes: Vec<u8>) -> Result<()> {
-        send_request!(self.connection, SetDashes {
-            gcontext: self.handle,
-            dash_offset: dash_offset,
-            dashes: dashes,
-        });
+        send_request!(
+            self.connection,
+            SetDashes {
+                gcontext: self.handle,
+                dash_offset: dash_offset,
+                dashes: dashes,
+            }
+        );
         Ok(())
     }
 
-    pub async fn set_clip_rectangles(&self, sorting: ClipSorting, clip_x_origin: i16, clip_y_origin: i16, rectangles: Vec<Rectangle>) -> Result<()> {
-        send_request!(self.connection, sorting as u8, SetClipRectangles {
-            gcontext: self.handle,
-            clip_x_origin: clip_x_origin,
-            clip_y_origin: clip_y_origin,
-            rectangles: rectangles,
-        });
+    pub async fn set_clip_rectangles(
+        &self,
+        sorting: ClipSorting,
+        clip_x_origin: i16,
+        clip_y_origin: i16,
+        rectangles: Vec<Rectangle>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            sorting as u8,
+            SetClipRectangles {
+                gcontext: self.handle,
+                clip_x_origin: clip_x_origin,
+                clip_y_origin: clip_y_origin,
+                rectangles: rectangles.into_iter().map(Into::into).collect(),
+            }
+        );
         Ok(())
     }
 
     pub async fn free(&self) -> Result<()> {
-        send_request!(self.connection, FreeGC {
-            gcontext: self.handle,
-        });
-        Ok(())
-    }
-    
-    pub async fn copy_area(&self, src: impl Into<Drawable<'_>>, dst: impl Into<Drawable<'_>>, src_x: i16, src_y: i16, dst_x: i16, dst_y: i16, width: u16, height: u16) -> Result<()> {
-        send_request!(self.connection, CopyArea {
-            src_drawable: src.into().handle(),
-            dst_drawable: dst.into().handle(),
-            gcontext: self.handle,
-            src_x: src_x,
-            src_y: src_y,
-            dst_x: dst_x,
-            dst_y: dst_y,
-            width: width,
-            height: height,
-        });
-        Ok(())
-    }
-    
-    pub async fn copy_plane(&self, src: impl Into<Drawable<'_>>, dst: impl Into<Drawable<'_>>, src_x: i16, src_y: i16, dst_x: i16, dst_y: i16, width: u16, height: u16, bit_plane: u32) -> Result<()> {
-        send_request!(self.connection, CopyPlane {
-            src_drawable: src.into().handle(),
-            dst_drawable: dst.into().handle(),
-            gcontext: self.handle,
-            src_x: src_x,
-            src_y: src_y,
-            dst_x: dst_x,
-            dst_y: dst_y,
-            width: width,
-            height: height,
-            bit_plane: bit_plane,
-        });
+        send_request!(
+            self.connection,
+            FreeGC {
+                gcontext: self.handle,
+            }
+        );
         Ok(())
     }
 
-    pub async fn poly_point(&self, drawable: impl Into<Drawable<'_>>, coordinate_mode: CoordinateMode, points: Vec<Point>) -> Result<()> {
-        send_request!(self.connection, coordinate_mode as u8, PolyPoint {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            points: points,
-        });
+    pub async fn copy_area(
+        &self,
+        src: impl Into<Drawable<'_>>,
+        dst: impl Into<Drawable<'_>>,
+        src_x: i16,
+        src_y: i16,
+        dst_x: i16,
+        dst_y: i16,
+        width: u16,
+        height: u16,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            CopyArea {
+                src_drawable: src.into().handle(),
+                dst_drawable: dst.into().handle(),
+                gcontext: self.handle,
+                src_x: src_x,
+                src_y: src_y,
+                dst_x: dst_x,
+                dst_y: dst_y,
+                width: width,
+                height: height,
+            }
+        );
         Ok(())
     }
 
-    pub async fn poly_line(&self, drawable: impl Into<Drawable<'_>>, coordinate_mode: CoordinateMode, points: Vec<Point>) -> Result<()> {
-        send_request!(self.connection, coordinate_mode as u8, PolyLine {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            points: points,
-        });
+    pub async fn copy_plane(
+        &self,
+        src: impl Into<Drawable<'_>>,
+        dst: impl Into<Drawable<'_>>,
+        src_x: i16,
+        src_y: i16,
+        dst_x: i16,
+        dst_y: i16,
+        width: u16,
+        height: u16,
+        bit_plane: u32,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            CopyPlane {
+                src_drawable: src.into().handle(),
+                dst_drawable: dst.into().handle(),
+                gcontext: self.handle,
+                src_x: src_x,
+                src_y: src_y,
+                dst_x: dst_x,
+                dst_y: dst_y,
+                width: width,
+                height: height,
+                bit_plane: bit_plane,
+            }
+        );
         Ok(())
     }
 
-    pub async fn poly_segment(&self, drawable: impl Into<Drawable<'_>>, segments: Vec<Segment>) -> Result<()> {
-        send_request!(self.connection, PolySegment {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            segments: segments,
-        });
+    pub async fn poly_point(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        coordinate_mode: CoordinateMode,
+        points: Vec<Point>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            coordinate_mode as u8,
+            PolyPoint {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                points: points,
+            }
+        );
         Ok(())
     }
 
-    pub async fn poly_rectangle(&self, drawable: impl Into<Drawable<'_>>, rectangles: Vec<Rectangle>) -> Result<()> {
-        send_request!(self.connection, PolyRectangle {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            rectangles: rectangles,
-        });
+    pub async fn poly_line(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        coordinate_mode: CoordinateMode,
+        points: Vec<Point>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            coordinate_mode as u8,
+            PolyLine {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                points: points,
+            }
+        );
+        Ok(())
+    }
+
+    pub async fn poly_segment(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        segments: Vec<Segment>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            PolySegment {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                segments: segments,
+            }
+        );
+        Ok(())
+    }
+
+    pub async fn poly_rectangle(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        rectangles: Vec<Rectangle>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            PolyRectangle {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                rectangles: rectangles.into_iter().map(Into::into).collect(),
+            }
+        );
         Ok(())
     }
 
     pub async fn poly_arc(&self, drawable: impl Into<Drawable<'_>>, arcs: Vec<Arc>) -> Result<()> {
-        send_request!(self.connection, PolyArc {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            arcs: arcs,
-        });
+        send_request!(
+            self.connection,
+            PolyArc {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                arcs: arcs,
+            }
+        );
         Ok(())
     }
 
-    pub async fn fill_poly(&self, drawable: impl Into<Drawable<'_>>, coordinate_mode: CoordinateMode, shape: Shape, points: Vec<Point>) -> Result<()> {
-        send_request!(self.connection, FillPoly {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            shape: shape,
-            coordinate_mode: coordinate_mode,
-            points: points,
-        });
+    pub async fn fill_poly(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        coordinate_mode: CoordinateMode,
+        shape: Shape,
+        points: Vec<Point>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            FillPoly {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                shape: shape,
+                coordinate_mode: coordinate_mode,
+                points: points,
+            }
+        );
         Ok(())
     }
 
-    pub async fn poly_fill_rectangle(&self, drawable: impl Into<Drawable<'_>>, rectangles: Vec<Rectangle>) -> Result<()> {
-        send_request!(self.connection, PolyFillRectangle {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            rectangles: rectangles,
-        });
-        Ok(())
-    }
-    
-    pub async fn poly_fill_arc(&self, drawable: impl Into<Drawable<'_>>, arcs: Vec<Arc>) -> Result<()> {
-        send_request!(self.connection, PolyFillArc {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            arcs: arcs,
-        });
-        Ok(())
-    }
-
-    pub async fn put_image(&self, drawable: impl Into<Drawable<'_>>, format: ImageFormat, width: u16, height: u16, dst_x: i16, dst_y: i16, left_pad: u8, depth: u8, data: Vec<u8>) -> Result<()> {
-        send_request!(self.connection, format as u8, PutImage {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            width: width,
-            height: height,
-            dst_x: dst_x,
-            dst_y: dst_y,
-            left_pad: left_pad,
-            depth: depth,
-            data: data,
-        });
+    pub async fn poly_fill_rectangle(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        rectangles: Vec<Rectangle>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            PolyFillRectangle {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                rectangles: rectangles.into_iter().map(Into::into).collect(),
+            }
+        );
         Ok(())
     }
 
-    pub async fn get_image(&self, drawable: impl Into<Drawable<'_>>, format: ImageFormat, x: i16, y: i16, width: u16, height: u16, plane_mask: u32) -> Result<FetchedImage> {
+    pub async fn poly_fill_arc(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        arcs: Vec<Arc>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            PolyFillArc {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                arcs: arcs,
+            }
+        );
+        Ok(())
+    }
+
+    pub async fn put_image(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        format: ImageFormat,
+        width: u16,
+        height: u16,
+        dst_x: i16,
+        dst_y: i16,
+        left_pad: u8,
+        depth: u8,
+        data: Vec<u8>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            format as u8,
+            PutImage {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                width: width,
+                height: height,
+                dst_x: dst_x,
+                dst_y: dst_y,
+                left_pad: left_pad,
+                depth: depth,
+                data: data,
+            }
+        );
+        Ok(())
+    }
+
+    pub async fn get_image(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        format: ImageFormat,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        plane_mask: u32,
+    ) -> Result<FetchedImage> {
         if format == ImageFormat::Bitmap {
             bail!("cannot request bitmap image from x11");
         }
-        let seq = send_request!(self.connection, format as u8, GetImage {
-            drawable: drawable.into().handle(),
-            x: x,
-            y: y,
-            width: width,
-            height: height,
-            plane_mask: plane_mask,
-        });
+        let seq = send_request!(
+            self.connection,
+            format as u8,
+            GetImage {
+                drawable: drawable.into().handle(),
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                plane_mask: plane_mask,
+            }
+        );
         let (reply, depth) = receive_reply!(self.connection, seq, GetImageReply, fetched);
 
         Ok(FetchedImage {
@@ -404,89 +541,131 @@ impl<'a> GContext<'a> {
             data: reply.data,
         })
     }
-    
-    pub async fn poly_text8(&self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, items: impl IntoIterator<Item=TextItem8<'_>>) -> Result<()> {
-        send_request!(self.connection, PolyText8 {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            x: x,
-            y: y,
-            items: items.into_iter().map(|item| Ok(match item {
-                TextItem8::String(delta, string) => crate::coding::TextItem8 {
-                    string_len: match string.len() {
-                        x if x < 255 => x as u8,
-                        _ => bail!("strings cannot be >254 bytes long"),
-                    },
-                    delta: Some(delta),
-                    string: Some(string),
-                    ..Default::default()
-                },
-                TextItem8::Font(font) => {
-                    crate::coding::TextItem8 {
-                        string_len: 255,
-                        delta: None,
-                        string: None,
-                        font: Some(font.handle),
-                    }
-                },
-            })).collect::<Result<Vec<_>>>()?,
-        });
 
-        Ok(())
-    }
-
-    pub async fn poly_text16(&self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, items: impl IntoIterator<Item=TextItem16<'_>>) -> Result<()> {
-        send_request!(self.connection, PolyText16 {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            x: x,
-            y: y,
-            items: items.into_iter().map(|item| Ok(match item {
-                TextItem16::String(delta, string) => {
-                    crate::coding::TextItem16 {
-                        string_len: match string.len() {
-                            x if x < 255 => x as u8,
-                            _ => bail!("strings cannot be >254 bytes long"),
+    pub async fn poly_text8(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        x: i16,
+        y: i16,
+        items: impl IntoIterator<Item = TextItem8<'_>>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            PolyText8 {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                x: x,
+                y: y,
+                items: items
+                    .into_iter()
+                    .map(|item| Ok(match item {
+                        TextItem8::String(delta, string) => crate::coding::TextItem8 {
+                            string_len: match string.len() {
+                                x if x < 255 => x as u8,
+                                _ => bail!("strings cannot be >254 bytes long"),
+                            },
+                            delta: Some(delta),
+                            string: Some(string),
+                            ..Default::default()
                         },
-                        delta: Some(delta),
-                        string: Some(string),
-                        ..Default::default()
-                    }
-                },
-                TextItem16::Font(font) => {
-                    crate::coding::TextItem16 {
-                        string_len: 255,
-                        delta: None,
-                        string: None,
-                        font: Some(font.handle),
-                    }
-                },
-            })).collect::<Result<Vec<_>>>()?,
-        });
+                        TextItem8::Font(font) => {
+                            crate::coding::TextItem8 {
+                                string_len: 255,
+                                delta: None,
+                                string: None,
+                                font: Some(font.handle),
+                            }
+                        }
+                    }))
+                    .collect::<Result<Vec<_>>>()?,
+            }
+        );
 
         Ok(())
     }
 
-    pub async fn image_text8(&self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, string: String) -> Result<()> {
-        send_request!(self.connection, ImageText8 {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            x: x,
-            y: y,
-            string: string,
-        });
+    pub async fn poly_text16(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        x: i16,
+        y: i16,
+        items: impl IntoIterator<Item = TextItem16<'_>>,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            PolyText16 {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                x: x,
+                y: y,
+                items: items
+                    .into_iter()
+                    .map(|item| Ok(match item {
+                        TextItem16::String(delta, string) => {
+                            crate::coding::TextItem16 {
+                                string_len: match string.len() {
+                                    x if x < 255 => x as u8,
+                                    _ => bail!("strings cannot be >254 bytes long"),
+                                },
+                                delta: Some(delta),
+                                string: Some(string),
+                                ..Default::default()
+                            }
+                        }
+                        TextItem16::Font(font) => {
+                            crate::coding::TextItem16 {
+                                string_len: 255,
+                                delta: None,
+                                string: None,
+                                font: Some(font.handle),
+                            }
+                        }
+                    }))
+                    .collect::<Result<Vec<_>>>()?,
+            }
+        );
 
         Ok(())
     }
 
-    pub async fn image_text16(&self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, string: String) -> Result<()> {
-        send_request!(self.connection, ImageText16 {
-            drawable: drawable.into().handle(),
-            gcontext: self.handle,
-            x: x,
-            y: y,
-            string: string,
-        });
+    pub async fn image_text8(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        x: i16,
+        y: i16,
+        string: String,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            ImageText8 {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                x: x,
+                y: y,
+                string: string,
+            }
+        );
+
+        Ok(())
+    }
+
+    pub async fn image_text16(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        x: i16,
+        y: i16,
+        string: String,
+    ) -> Result<()> {
+        send_request!(
+            self.connection,
+            ImageText16 {
+                drawable: drawable.into().handle(),
+                gcontext: self.handle,
+                x: x,
+                y: y,
+                string: string,
+            }
+        );
 
         Ok(())
     }

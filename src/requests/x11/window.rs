@@ -374,14 +374,14 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn save_set_add(&self) -> Result<()> {
+    pub async fn legacy_save_set_add(&self) -> Result<()> {
         send_request!(self.connection, InsertDelete::Insert as u8, ChangeSaveSet {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn save_set_delete(&self) -> Result<()> {
+    pub async fn legacy_save_set_delete(&self) -> Result<()> {
         send_request!(self.connection, InsertDelete::Delete as u8, ChangeSaveSet {
             window: self.handle,
         });

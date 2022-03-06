@@ -9,8 +9,7 @@ pub enum Drawable<'a> {
     Raw(RawDrawable<'a>),
 }
 
-#[derive(Clone, Copy)]
-#[derive(derivative::Derivative)]
+#[derive(Clone, Copy, derivative::Derivative)]
 #[derivative(Debug)]
 pub struct RawDrawable<'a> {
     pub(crate) handle: u32,
@@ -52,15 +51,20 @@ pub struct Geometry<'a> {
 }
 
 impl X11Connection {
-
     pub async fn get_geometry(&self, drawable: impl Into<Drawable<'_>>) -> Result<Geometry<'_>> {
-        let seq = send_request!(self, GetGeometry {
-            drawable: drawable.into().handle(),
-        });
+        let seq = send_request!(
+            self,
+            GetGeometry {
+                drawable: drawable.into().handle(),
+            }
+        );
         let reply = receive_reply!(self, seq, GetGeometryReply);
 
         Ok(Geometry {
-            root_window: Window { handle: reply.root_window, connection: self },
+            root_window: Window {
+                handle: reply.root_window,
+                connection: self,
+            },
             x: reply.x,
             y: reply.y,
             width: reply.width,
@@ -69,12 +73,22 @@ impl X11Connection {
         })
     }
 
-    pub async fn query_best_size(&self, drawable: impl Into<Drawable<'_>>, class: QueryBestSizeClass, width: u16, height: u16) -> Result<(u16, u16)> {
-        let seq = send_request!(self, class as u8, QueryBestSize {
-            drawable: drawable.into().handle(),
-            width: width,
-            height: height,
-        });
+    pub async fn query_best_size(
+        &self,
+        drawable: impl Into<Drawable<'_>>,
+        class: QueryBestSizeClass,
+        width: u16,
+        height: u16,
+    ) -> Result<(u16, u16)> {
+        let seq = send_request!(
+            self,
+            class as u8,
+            QueryBestSize {
+                drawable: drawable.into().handle(),
+                width: width,
+                height: height,
+            }
+        );
         let reply = receive_reply!(self, seq, QueryBestSizeReply);
 
         Ok((reply.width, reply.height))

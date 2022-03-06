@@ -1,4 +1,4 @@
-use self::xinput2::{XIEventData, XIEventCode};
+use self::xinput2::{XIEventCode, XIEventData};
 
 // pub mod xinput1 {
 //     protospec::include_spec!("xinput1");

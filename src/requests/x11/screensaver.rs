@@ -11,13 +11,22 @@ pub struct Screensaver {
 }
 
 impl X11Connection {
-    pub async fn set_screensaver(&self, timeout: i16, interval: i16, prefer_blanking: OffOnDefault, allow_exposures: OffOnDefault) -> Result<()> {
-        send_request!(self, SetScreenSaver {
-            timeout: timeout,
-            interval: interval,
-            prefer_blanking: prefer_blanking,
-            allow_exposures: allow_exposures,
-        });
+    pub async fn set_screensaver(
+        &self,
+        timeout: i16,
+        interval: i16,
+        prefer_blanking: OffOnDefault,
+        allow_exposures: OffOnDefault,
+    ) -> Result<()> {
+        send_request!(
+            self,
+            SetScreenSaver {
+                timeout: timeout,
+                interval: interval,
+                prefer_blanking: prefer_blanking,
+                allow_exposures: allow_exposures,
+            }
+        );
         Ok(())
     }
 

@@ -1,5 +1,5 @@
-use crate::{requests::{XINPUT_EXT_NAME, XKB_EXT_NAME}};
-pub use crate::coding::{xinput2::XIErrorCode, xkb::XKBErrorCode, ErrorCode};
+pub use crate::coding::{xfixes::XFErrorCode, xinput2::XIErrorCode, xkb::XKBErrorCode, ErrorCode};
+use crate::requests::{XFIXES_EXT_NAME, XINPUT_EXT_NAME, XKB_EXT_NAME};
 
 use super::*;
 
@@ -8,6 +8,7 @@ pub enum X11ErrorCode {
     X11(ErrorCode),
     XKB(XKBErrorCode),
     XI(XIErrorCode),
+    XF(XFErrorCode),
     Unknown(u8),
 }
 
@@ -26,6 +27,11 @@ impl X11ErrorCode {
                 return X11ErrorCode::XI(XIErrorCode::BadDevice);
             }
         }
+        if let Some(xfixes) = connection.get_ext_info(XFIXES_EXT_NAME) {
+            if code == xfixes.error_start {
+                return X11ErrorCode::XF(XFErrorCode::BadRegion);
+            }
+        }
         X11ErrorCode::Unknown(code)
     }
 }
@@ -42,9 +48,7 @@ impl fmt::Display for X11ErrorReply {
     }
 }
 
-impl std::error::Error for X11ErrorReply {
-
-}
+impl std::error::Error for X11ErrorReply {}
 
 pub enum X11Error {
     Error(anyhow::Error),
@@ -69,9 +73,7 @@ impl fmt::Display for X11Error {
     }
 }
 
-impl std::error::Error for X11Error {
-
-}
+impl std::error::Error for X11Error {}
 
 impl From<anyhow::Error> for X11Error {
     fn from(from: anyhow::Error) -> Self {

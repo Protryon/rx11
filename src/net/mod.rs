@@ -74,6 +74,7 @@ impl X11Connection {
     async fn init_state(&mut self) -> Result<()> {
         self.enable_xge().await?;
         self.enable_xkb().await?;
+        self.enable_xfixes().await?;
         self.enable_xinput2().await?;
 
         Ok(())
