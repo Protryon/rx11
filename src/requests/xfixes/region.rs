@@ -92,7 +92,7 @@ impl X11Connection {
 
 impl<'a> Region<'a> {
 
-    pub async fn destroy(&self) -> Result<()> {
+    pub async fn destroy(self) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::DestroyRegion, true, DestroyRegionRequest {
             region: self.handle,
         });
@@ -100,7 +100,7 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn set(&self, rectangles: impl IntoIterator<Item=Rectangle>) -> Result<()> {
+    pub async fn set(self, rectangles: impl IntoIterator<Item=Rectangle>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::SetRegion, true, SetRegionRequest {
             region: self.handle,
             rectangles: rectangles.into_iter().map(Into::into).collect(),
@@ -109,7 +109,7 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn copy_to(&self, target: Region<'_>) -> Result<()> {
+    pub async fn copy_to(self, target: Region<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::CopyRegion, true, CopyRegionRequest {
             src_region: self.handle,
             dst_region: target.handle,
@@ -118,7 +118,7 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn union_from(&self, src1: Region<'_>, src2: Region<'_>) -> Result<()> {
+    pub async fn union_from(self, src1: Region<'_>, src2: Region<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::UnionRegion, true, UnionRegionRequest {
             dst_region: self.handle,
             src_region1: src1.handle,
@@ -128,13 +128,13 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn union(&self, other: Region<'_>) -> Result<Region<'_>> {
+    pub async fn union(self, other: Region<'_>) -> Result<Region<'a>> {
         let new_region = self.connection.create_region(vec![]).await?;
-        new_region.union_from(*self, other).await?;
+        new_region.union_from(self, other).await?;
         Ok(new_region)
     }
 
-    pub async fn intersect_from(&self, src1: Region<'_>, src2: Region<'_>) -> Result<()> {
+    pub async fn intersect_from(self, src1: Region<'_>, src2: Region<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::IntersectRegion, true, IntersectRegionRequest {
             dst_region: self.handle,
             src_region1: src1.handle,
@@ -144,13 +144,13 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn intersect(&self, other: Region<'_>) -> Result<Region<'_>> {
+    pub async fn intersect(self, other: Region<'_>) -> Result<Region<'a>> {
         let new_region = self.connection.create_region(vec![]).await?;
-        new_region.intersect_from(*self, other).await?;
+        new_region.intersect_from(self, other).await?;
         Ok(new_region)
     }
 
-    pub async fn subtract_from(&self, src1: Region<'_>, src2: Region<'_>) -> Result<()> {
+    pub async fn subtract_from(self, src1: Region<'_>, src2: Region<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::SubtractRegion, true, SubtractRegionRequest {
             dst_region: self.handle,
             src_region1: src1.handle,
@@ -160,13 +160,13 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn subtract_region(&self, other: Region<'_>) -> Result<Region<'_>> {
+    pub async fn subtract_region(self, other: Region<'_>) -> Result<Region<'a>> {
         let new_region = self.connection.create_region(vec![]).await?;
-        new_region.subtract_from(*self, other).await?;
+        new_region.subtract_from(self, other).await?;
         Ok(new_region)
     }
 
-    pub async fn invert(&self, target: Region<'_>, bounds: Rectangle) -> Result<()> {
+    pub async fn invert(self, target: Region<'_>, bounds: Rectangle) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::InvertRegion, true, InvertRegionRequest {
             src_region: self.handle,
             bounds: bounds.into(),
@@ -176,7 +176,7 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn translate(&self, dx: i16, dy: i16) -> Result<()> {
+    pub async fn translate(self, dx: i16, dy: i16) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::TranslateRegion, true, TranslateRegionRequest {
             region: self.handle,
             dx: dx,
@@ -186,7 +186,7 @@ impl<'a> Region<'a> {
         Ok(())
     }
 
-    pub async fn get_extents(&self, target: Region<'_>) -> Result<()> {
+    pub async fn get_extents(self, target: Region<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::RegionExtents, true, RegionExtentsRequest {
             src_region: self.handle,
             dst_region: target.handle,
@@ -195,7 +195,7 @@ impl<'a> Region<'a> {
         Ok(())
     }
     
-    pub async fn fetch(&self) -> Result<RegionRectangles> {
+    pub async fn fetch(self) -> Result<RegionRectangles> {
         let seq = send_request_xfixes!(self.connection, XFOpcode::FetchRegion, false, FetchRegionRequest {
             region: self.handle,
         });
@@ -207,7 +207,7 @@ impl<'a> Region<'a> {
         })
     }
 
-    pub async fn expand(&self, target: Region<'_>, left: u16, right: u16, top: u16, bottom: u16) -> Result<()> {
+    pub async fn expand(self, target: Region<'_>, left: u16, right: u16, top: u16, bottom: u16) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::ExpandRegion, true, ExpandRegionRequest {
             src_region: self.handle,
             dst_region: target.handle,

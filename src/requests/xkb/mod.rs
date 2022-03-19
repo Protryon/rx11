@@ -3,6 +3,7 @@ use crate::coding::RequestBody;
 use crate::coding::xkb::{
     XKBOpcode,
 };
+pub use crate::coding::xkb::XKBEventMask;
 
 pub const XKB_EXT_NAME: &str = "XKEYBOARD";
 const XKB_EVENT_COUNT: u8 = 1;

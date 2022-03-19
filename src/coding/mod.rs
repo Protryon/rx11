@@ -9,3 +9,9 @@ pub use xinput_proto::*;
 
 mod xfixes_proto;
 pub use xfixes_proto::*;
+
+mod xrandr_proto;
+pub use xrandr_proto::*;
+
+mod shape_proto;
+pub use shape_proto::*;

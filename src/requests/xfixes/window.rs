@@ -8,7 +8,7 @@ pub use crate::coding::xfixes::{
 use super::*;
 
 impl<'a> Window<'a> {
-    pub async fn save_set_add(&self, target: SaveSetTarget, map: SaveSetMapping) -> Result<()> {
+    pub async fn save_set_add(self, target: SaveSetTarget, map: SaveSetMapping) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::ChangeSaveSet, true, ChangeSaveSetRequest {
             mode: SaveSetMode::Insert,
             target: target,
@@ -19,7 +19,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn save_set_delete(&self) -> Result<()> {
+    pub async fn save_set_delete(self) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::ChangeSaveSet, true, ChangeSaveSetRequest {
             mode: SaveSetMode::Delete,
             window: self.handle,
@@ -27,11 +27,10 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    //TODO: integrate `dst_shape_kind` with `shape`
-    pub async fn set_shape_region(&self, dst_shape_kind: u8, x_offset: i16, y_offset: i16, region: Region<'_>) -> Result<()> {
+    pub async fn set_shape_region(self, dst_shape_kind: ShapeKind, x_offset: i16, y_offset: i16, region: Region<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::SetWindowShapeRegion, true, SetWindowShapeRegionRequest {
             dst_window: self.handle,
-            dst_shape_kind: dst_shape_kind,
+            dst_shape_kind: dst_shape_kind as u8,
             x_offset: x_offset,
             y_offset: y_offset,
             region: region.handle,

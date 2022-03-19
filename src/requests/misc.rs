@@ -49,3 +49,25 @@ impl Into<crate::coding::xfixes::Rectangle> for Rectangle {
         }
     }
 }
+
+impl From<crate::coding::shape::Rectangle> for Rectangle {
+    fn from(from: crate::coding::shape::Rectangle) -> Self {
+        Self {
+            x: from.x,
+            y: from.y,
+            width: from.width,
+            height: from.height,
+        }
+    }
+}
+
+impl Into<crate::coding::shape::Rectangle> for Rectangle {
+    fn into(self) -> crate::coding::shape::Rectangle {
+        crate::coding::shape::Rectangle {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+}

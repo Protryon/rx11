@@ -45,23 +45,23 @@ impl From<Vec<u32>> for PropertyValue {
 }
 
 impl<'a> Window<'a> {
-    pub async fn set_property_string<S: AsRef<str>>(&self, property: Atom, value: S) -> Result<()> {
+    pub async fn set_property_string<S: AsRef<str>>(self, property: Atom, value: S) -> Result<()> {
         self.replace_property(property, Atom::STRING, value.as_ref()).await
     }
 
-    pub async fn append_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
+    pub async fn append_property<P: Into<PropertyValue>>(self, property: Atom, type_: Atom, data: P) -> Result<()> {
         self.change_property(property, type_, ChangePropertyMode::Append, data).await
     }
 
-    pub async fn prepend_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
+    pub async fn prepend_property<P: Into<PropertyValue>>(self, property: Atom, type_: Atom, data: P) -> Result<()> {
         self.change_property(property, type_, ChangePropertyMode::Prepend, data).await
     }
 
-    pub async fn replace_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, data: P) -> Result<()> {
+    pub async fn replace_property<P: Into<PropertyValue>>(self, property: Atom, type_: Atom, data: P) -> Result<()> {
         self.change_property(property, type_, ChangePropertyMode::Replace, data).await
     }
 
-    async fn change_property<P: Into<PropertyValue>>(&self, property: Atom, type_: Atom, mode: ChangePropertyMode, data: P) -> Result<()> {
+    async fn change_property<P: Into<PropertyValue>>(self, property: Atom, type_: Atom, mode: ChangePropertyMode, data: P) -> Result<()> {
         let data = data.into();
         let (format, length) = match &data {
             PropertyValue::U8(data) => (ChangePropertyFormat::L8, data.len()),
@@ -86,7 +86,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn delete_property(&self, property: Atom) -> Result<()> {
+    pub async fn delete_property(self, property: Atom) -> Result<()> {
         send_request!(self.connection, DeleteProperty {
             window: self.handle,
             property: property.handle,
@@ -95,7 +95,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn get_property_full(&self, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
+    pub async fn get_property_full(self, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
         let seq = send_request!(self.connection, delete as u8, GetProperty {
             window: self.handle,
             property: property.handle,
@@ -118,11 +118,11 @@ impl<'a> Window<'a> {
         })
     }
 
-    pub async fn get_property(&self, property: Atom, type_: Option<Atom>) -> Result<PropertyValue> {
+    pub async fn get_property(self, property: Atom, type_: Option<Atom>) -> Result<PropertyValue> {
         self.get_property_full(property, type_, 0, u32::MAX, false).await.map(|x| x.value)
     }
 
-    pub async fn list_properties(&self) -> Result<Vec<Atom>> {
+    pub async fn list_properties(self) -> Result<Vec<Atom>> {
         let seq = send_request!(self.connection, ListProperties {
             window: self.handle,
         });
@@ -135,7 +135,7 @@ impl<'a> Window<'a> {
         Ok(out)
     }
 
-    pub async fn rotate_properties(&self, properties: &[Atom], delta: i16) -> Result<()> {
+    pub async fn rotate_properties(self, properties: &[Atom], delta: i16) -> Result<()> {
         send_request!(self.connection, RotateProperties {
             window: self.handle,
             properties: properties.iter().map(|x| x.handle).collect(),

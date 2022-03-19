@@ -22,7 +22,7 @@ pub struct PointerData<'a> {
 }
 
 impl<'a> Window<'a> {
-    pub async fn query_pointer(&self, device: Device<'_>) -> Result<PointerData<'_>> {
+    pub async fn query_pointer(self, device: Device<'_>) -> Result<PointerData<'a>> {
         let seq = send_request_xinput!(self.connection, XIOpcode::XIQueryPointer, false, XIQueryPointerRequest {
             device: device.id,
             window: self.handle,
@@ -52,7 +52,7 @@ impl<'a> Window<'a> {
         })
     }
 
-    pub async fn change_cursor(&self, device: Device<'_>, cursor: Option<Cursor<'_>>) -> Result<()> {
+    pub async fn change_cursor(self, device: Device<'_>, cursor: Option<Cursor<'_>>) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XIChangeCursor, true, XIChangeCursorRequest {
             device: device.id,
             window: self.handle,
@@ -89,11 +89,11 @@ pub enum PointerDestination<'a> {
 }
 
 impl<'a> Device<'a> {
-    pub async fn query_pointer<'b, 'c: 'b>(self, window: &'c Window<'b>) -> Result<PointerData<'c>> {
+    pub async fn query_pointer<'b>(self, window: Window<'b>) -> Result<PointerData<'b>> {
         window.query_pointer(self).await
     }
 
-    pub async fn warp_pointer<'b>(self, source: PointerSource<'b>, dest: PointerDestination<'b>) -> Result<()> {
+    pub async fn warp_pointer(self, source: PointerSource<'_>, dest: PointerDestination<'_>) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XIWarpPointer, true, XIWarpPointerRequest {
             device: self.id,
             src_window: match source {

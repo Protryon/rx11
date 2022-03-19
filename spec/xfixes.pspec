@@ -354,6 +354,11 @@ type XFEventCode = enum u8 {
     CursorNotify,
 };
 
+type XFEventMask = bitfield u16 {
+    SelectionNotify = 0x1,
+    CursorNotify,
+};
+
 type XFEventData(code: XFEventCode) = container +tagged_enum {
     SelectionNotify: SelectionNotifyEvent { code == XFEventCode::SelectionNotify },
     CursorNotify: CursorNotifyEvent { code == XFEventCode::CursorNotify },

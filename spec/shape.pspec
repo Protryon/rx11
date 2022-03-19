@@ -15,6 +15,7 @@ type ShapeKind = enum u8 {
 
 type NotifyEvent = container {
     shape_kind: ShapeKind,
+    sequence_number: u16,
     affected_window: u32,
     extents_x: i16,
     extents_y: i16,
@@ -108,13 +109,13 @@ type QueryExtentsResponse = container {
 };
 
 type SelectInputRequest = container {
-    dst_window: u32,
+    window: u32,
     enable: bool,
     .pad: 3,
 };
 
 type InputSelectedRequest = container {
-    dst_window: u32,
+    window: u32,
 };
 
 // reserved => enabled: bool,
@@ -123,7 +124,7 @@ type InputSelectedResponse = container {
 
 type GetRectanglesRequest = container {
     window: u32,
-    src_kind: ShapeKind,
+    kind: ShapeKind,
     .pad: 3,
 };
 
@@ -132,4 +133,30 @@ type GetRectanglesResponse = container {
     rectangles_len: u32 = len(rectangles) :> u32,
     .pad: 20,
     rectangles: Rectangle[rectangles_len],
+};
+
+// opcodes
+
+type ShapeOpcode = enum u8 {
+    QueryVersion = 0,
+    Rectangles,
+    Mask,
+    Combine,
+    Offset,
+    QueryExtents,
+    SelectInput,
+    InputSelected,
+    GetRectangles,
+};
+
+type ShapeEventCode = enum u8 {
+    Notify = 0,
+};
+
+type ShapeEventMask = bitfield u16 {
+    Notify = 0x1,
+};
+
+type ShapeEventData(code: ShapeEventCode) = container +tagged_enum {
+    Notify: NotifyEvent { code == ShapeEventCode::Notify },
 };

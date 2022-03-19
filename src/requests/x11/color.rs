@@ -19,7 +19,7 @@ pub struct ColorItem {
 pub use crate::coding::{ Rgb, LookupColorReply };
 
 impl<'a> Colormap<'a> {
-    pub async fn alloc_color(&self, red: u16, green: u16, blue: u16) -> Result<Pixel> {
+    pub async fn alloc_color(self, red: u16, green: u16, blue: u16) -> Result<Pixel> {
         let seq = send_request!(self.connection, AllocColor {
             colormap: self.handle,
             red: red,
@@ -31,7 +31,7 @@ impl<'a> Colormap<'a> {
         Ok(Pixel(reply.pixel))
     }
 
-    pub async fn alloc_named_color(&self, name: &str) -> Result<Pixel> {
+    pub async fn alloc_named_color(self, name: &str) -> Result<Pixel> {
         let seq = send_request!(self.connection, AllocNamedColor {
             colormap: self.handle,
             name: name.to_string(),
@@ -41,7 +41,7 @@ impl<'a> Colormap<'a> {
         Ok(Pixel(reply.pixel))
     }
     
-    pub async fn alloc_color_cells(&self, contiguous: bool, colors: u16, planes: u16) -> Result<(Vec<Pixel>, Vec<Pixel>)> {
+    pub async fn alloc_color_cells(self, contiguous: bool, colors: u16, planes: u16) -> Result<(Vec<Pixel>, Vec<Pixel>)> {
         let seq = send_request!(self.connection, contiguous as u8, AllocColorCells {
             colormap: self.handle,
             colors: colors,
@@ -55,7 +55,7 @@ impl<'a> Colormap<'a> {
         ))
     }
 
-    pub async fn alloc_color_planes(&self, contiguous: bool, colors: u16, reds: u16, greens: u16, blues: u16) -> Result<ColorPlanes> {
+    pub async fn alloc_color_planes(self, contiguous: bool, colors: u16, reds: u16, greens: u16, blues: u16) -> Result<ColorPlanes> {
         let seq = send_request!(self.connection, contiguous as u8, AllocColorPlanes {
             colormap: self.handle,
             colors: colors,
@@ -73,7 +73,7 @@ impl<'a> Colormap<'a> {
         })
     }
 
-    pub async fn free_colors(&self, plane_mask: u32, pixels: Vec<Pixel>) -> Result<()> {
+    pub async fn free_colors(self, plane_mask: u32, pixels: Vec<Pixel>) -> Result<()> {
         send_request!(self.connection, FreeColors {
             colormap: self.handle,
             plane_mask: plane_mask,
@@ -83,7 +83,7 @@ impl<'a> Colormap<'a> {
         Ok(())
     }
 
-    pub async fn store_colors(&self, items: &[ColorItem]) -> Result<()> {
+    pub async fn store_colors(self, items: &[ColorItem]) -> Result<()> {
         send_request!(self.connection, StoreColors {
             colormap: self.handle,
             items: items.iter().map(|item| crate::coding::ColorItem {
@@ -111,7 +111,7 @@ impl<'a> Colormap<'a> {
         Ok(())
     }
 
-    pub async fn store_named_color(&self, pixel: Pixel, name: &str, do_red: bool, do_green: bool, do_blue: bool) -> Result<()> {
+    pub async fn store_named_color(self, pixel: Pixel, name: &str, do_red: bool, do_green: bool, do_blue: bool) -> Result<()> {
         let flags = {
             let mut out = 0u8;
             if do_red {
@@ -134,7 +134,7 @@ impl<'a> Colormap<'a> {
         Ok(())
     }
 
-    pub async fn query_colors(&self, pixels: &[Pixel]) -> Result<Vec<Rgb>> {
+    pub async fn query_colors(self, pixels: &[Pixel]) -> Result<Vec<Rgb>> {
         let seq = send_request!(self.connection, QueryColors {
             colormap: self.handle,
             pixels: pixels.iter().map(|x| x.0).collect(),
@@ -145,7 +145,7 @@ impl<'a> Colormap<'a> {
         Ok(reply.colors)
     }
 
-    pub async fn lookup_color(&self, name: &str) -> Result<LookupColorReply> {
+    pub async fn lookup_color(self, name: &str) -> Result<LookupColorReply> {
         let seq = send_request!(self.connection, LookupColor {
             colormap: self.handle,
             name: name.to_string(),

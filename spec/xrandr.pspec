@@ -1,4 +1,5 @@
 import_ffi pad as function;
+import_ffi utf8 as type;
 
 type XRErrorCode = enum u8 {
     BadOutput = 0,
@@ -7,7 +8,7 @@ type XRErrorCode = enum u8 {
     BadProvider,
 };
 
-type Rotation = bitfield u16 {
+type Rotation = bitfield u8 {
     Rotate0 = 0x1,
     Rotate90,
     Rotate180,
@@ -49,7 +50,7 @@ type SetConfig = enum u8 {
 };
 
 // from `render`
-type SubPixel = enum u16 {
+type SubPixel = enum u8 {
     Unknown = 0,
     HorizontalRGB,
     HorizontalBGR,
@@ -63,6 +64,7 @@ type SetScreenConfigRequest = container {
     time: u32,
     config_time: u32,
     size_id: u16,
+    .pad: 1,
     rotation: Rotation,
     rate: u16,
     .pad: 2,
@@ -73,6 +75,7 @@ type SetScreenConfigResponse = container {
     new_time: u32,
     config_time: u32,
     root_window: u32,
+    .pad: 1, // top byte of subpixel
     subpixel_order: SubPixel,
     .pad: 10,
 };
@@ -97,13 +100,14 @@ type GetScreenInfoRequest = container {
     window: u32,
 };
 
+//reserved => rotations: Rotation,
 type GetScreenInfoResponse = container {
-    rotations: u8, // `rotation` casted into u8
     root_window: u32,
     time: u32,
     config_time: u32,
     num_sizes: u16 = len(sizes) :> u16,
     size_id: u16,
+    .pad: 1,
     rotation: Rotation,
     rate: u16,
     num_infos: u16 = (len(rates) + len(sizes)) :> u16,
@@ -204,7 +208,7 @@ type GetOutputInfoResponse = container {
     subpixel_order: SubPixel,
     num_crtcs: u16 = len(crtcs) :> u16,
     num_modes: u16 = len(modes) :> u16,
-    num_preferred: u16 = len(preferred) :> u16,
+    num_preferred: u16,
     num_clones: u16 = len(clone_outputs) :> u16,
     name_len: u16 = len(name) :> u16,
     crtcs: u32[num_crtcs],
@@ -352,7 +356,9 @@ type GetCrtcInfoResponse = container {
     width: u16,
     height: u16,
     mode: u32,
+    .pad: 1,
     rotation: Rotation,
+    .pad: 1,
     rotations: Rotation,
     num_outputs: u16 = len(outputs) :> u16,
     num_possible_outputs: u16 = len(possible_outputs) :> u16,
@@ -367,6 +373,7 @@ type SetCrtcConfigRequest = container {
     x: i16,
     y: i16,
     mode: u32,
+    .pad: 1,
     rotation: Rotation,
     .pad: 2,
     outputs: u32[..],
@@ -389,7 +396,7 @@ type GetCrtcGammaSizeResponse = container {
 
 type GetCrtcGammaRequest = container {
     crtc: u32,
-}
+};
 
 type GetCrtcGammaResponse = container {
     size: u16 = len(red) :> u16,
@@ -420,12 +427,12 @@ type Transform = Fp1616[9];
 
 type SetCrtcTransformRequest = container {
     crtc: u32,
-    transform: Transform,
-    filter_len: u16 = len(filter) :> u16,
+    transformation: Transform,
+    filter_len: u16 = len(filter_name) :> u16,
     .pad: 2,
     filter_name: utf8(filter_len),
     .pad: pad(4, filter_len),
-    filter_params: Fp1616,
+    filter_params: Fp1616[..],
 };
 
 type GetCrtcTransformRequest = container {
@@ -589,7 +596,7 @@ type ChangeProviderPropertyRequest = container {
     format: PropertyFormat,
     mode: ChangePropertyMode,
     .pad: 2,
-    value: PropertyValue(format),
+    value: PropertyValue(format, 0),
 };
 
 type DeleteProviderPropertyRequest = container {
@@ -617,11 +624,13 @@ type GetProviderPropertyResponse(format: PropertyFormat) = container {
 
 type ScreenChangeNotifyEvent = container {
     rotation: Rotation,
+    sequence_number: u16,
     time: u32,
     config_time: u32,
     root_window: u32,
     request_window: u32,
     size_id: u16,
+    .pad: 1, // top byte of subpixel
     subpixel_order: SubPixel,
     width: u16,
     height: u16,
@@ -650,6 +659,7 @@ type NotifyData(code: NotifyCode) = container +tagged_enum {
         window: u32,
         crtc: u32,
         mode: u32,
+        .pad: 1,
         rotation: Rotation,
         .pad: 2,
         x: i16,
@@ -664,6 +674,7 @@ type NotifyData(code: NotifyCode) = container +tagged_enum {
         output: u32,
         crtc: u32,
         mode: u32,
+        .pad: 1,
         rotation: Rotation,
         connection: Connection,
         subpixel_order: SubPixel,
@@ -699,6 +710,7 @@ type NotifyData(code: NotifyCode) = container +tagged_enum {
 
 type NotifyEvent = container {
     code: NotifyCode,
+    sequence_number: u16,
     data: NotifyData(code),
 };
 
@@ -738,4 +750,60 @@ type SetMonitorRequest = container {
 type DeleteMonitorRequest = container {
     window: u32,
     name_atom: u32,
+};
+
+type XROpcode = enum u8 {
+    QueryVersion = 0,
+    SetScreenConfig = 2,
+    SelectInput = 4,
+    GetScreenInfo,
+    GetScreenSizeRange,
+    SetScreenSize,
+    GetScreenResources,
+    GetOutputInfo,
+    ListOutputProperties,
+    QueryOutputProperty,
+    ConfigureOutputProperty,
+    ChangeOutputProperty,
+    DeleteOutputProperty,
+    GetOutputProperty,
+    CreateMode,
+    DestroyMode,
+    AddOutputMode,
+    DeleteOutputMode,
+    GetCrtcInfo,
+    SetCrtcConfig,
+    GetCrtcGammaSize,
+    GetCrtcGamma,
+    SetCrtcGamma,
+    GetScreenResourcesCurrent,
+    SetCrtcTransform,
+    GetCrtcTransform,
+    GetPanning,
+    SetPanning,
+    SetOutputPrimary,
+    GetOutputPrimary,
+    GetProviders,
+    GetProviderInfo,
+    SetProviderOffloadSink,
+    SetProviderOutputSource,
+    ListProviderProperties,
+    QueryProviderProperty,
+    ConfigureProviderProperty,
+    ChangeProviderProperty,
+    DeleteProviderProperty,
+    GetProviderProperty,
+    GetMonitors,
+    SetMonitor,
+    DeleteMonitor,
+};
+
+type XREventCode = enum u8 {
+    ScreenChangeNotify = 0,
+    Notify,
+};
+
+type XREventData(code: XREventCode) = container +tagged_enum {
+    ScreenChangeNotify: ScreenChangeNotifyEvent { code == XREventCode::ScreenChangeNotify },
+    Notify: NotifyEvent { code == XREventCode::Notify },
 };

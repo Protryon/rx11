@@ -4,6 +4,7 @@ use crate::{coding::xfixes::{self, XFEventData, XFEventCode}, net::X11Connection
 pub use crate::coding::xfixes::{
     SelectionEventType,
     CursorNotifyType,
+    XFEventMask,
 };
 
 #[derive(Clone, Debug)]
@@ -21,8 +22,8 @@ impl<'a> XFEvent<'a> {
     }
 
     pub(crate) async fn from_protocol(connection: &'a X11Connection, from: Vec<u8>, code: u8) -> Result<XFEvent<'a>> {
-        let xkb_event = XFEventData::decode_sync(&mut &from[..], XFEventCode::from_repr(code)?)?;
-        Ok(match xkb_event {
+        let event = XFEventData::decode_sync(&mut &from[..], XFEventCode::from_repr(code)?)?;
+        Ok(match event {
             XFEventData::SelectionNotify(e) => XFEvent::SelectionNotify(SelectionNotifyEvent::from_protocol(connection, e).await?),
             XFEventData::CursorNotify(e) => XFEvent::CursorNotify(CursorNotifyEvent::from_protocol(connection, e).await?),
         })

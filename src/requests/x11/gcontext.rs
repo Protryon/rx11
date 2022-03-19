@@ -15,51 +15,62 @@ pub struct GContext<'a> {
     pub(crate) connection: &'a X11Connection,
 }
 
-#[derive(Default, Builder, Debug)]
+#[derive(Builder, Debug)]
 #[builder(default)]
 pub struct GContextParams<'a> {
-    #[builder(default = "GCFunction::Copy")]
     pub function: GCFunction,
-    #[builder(default = "u32::MAX")]
     pub plane_mask: u32,
-    #[builder(default = "0")]
     pub foreground: u32,
-    #[builder(default = "1")]
     pub background: u32,
-    #[builder(default = "0")]
     pub line_width: u16,
-    #[builder(default = "LineStyle::Solid")]
     pub line_style: LineStyle,
-    #[builder(default = "CapStyle::Butt")]
     pub cap_style: CapStyle,
-    #[builder(default = "JoinStyle::Miter")]
     pub join_style: JoinStyle,
-    #[builder(default = "FillStyle::Solid")]
     pub fill_style: FillStyle,
-    #[builder(default = "ArcMode::PieSlice")]
     pub arc_mode: ArcMode,
     #[builder(setter(into, strip_option), default)]
     pub tile: Option<Pixmap<'a>>,
     #[builder(setter(into, strip_option), default)]
     pub stipple: Option<Pixmap<'a>>,
-    #[builder(default = "0")]
     pub tile_stipple_x_origin: i16,
-    #[builder(default = "0")]
     pub tile_stipple_y_origin: i16,
     #[builder(setter(into, strip_option), default)]
     pub font: Option<Font<'a>>,
-    #[builder(default = "SubwindowMode::ClipByChildren")]
     pub subwindow_mode: SubwindowMode,
-    #[builder(default = "0")]
     pub clip_x_origin: i16,
-    #[builder(default = "0")]
     pub clip_y_origin: i16,
     #[builder(setter(into, strip_option), default)]
     pub clip_mask: Option<Pixmap<'a>>,
-    #[builder(default = "0")]
     pub dash_offset: u16,
-    #[builder(default = "4")]
     pub dashes: u8,
+}
+
+impl<'a> Default for GContextParams<'a> {
+    fn default() -> Self {
+        Self {
+            function: GCFunction::Copy,
+            plane_mask: u32::MAX,
+            foreground: 0,
+            background: 1,
+            line_width: 0,
+            line_style: LineStyle::Solid,
+            cap_style: CapStyle::Butt,
+            join_style: JoinStyle::Miter,
+            fill_style: FillStyle::Solid,
+            arc_mode: ArcMode::PieSlice,
+            tile: None,
+            stipple: None,
+            tile_stipple_x_origin: 0,
+            tile_stipple_y_origin: 0,
+            font: None,
+            subwindow_mode: SubwindowMode::ClipByChildren,
+            clip_x_origin: 0,
+            clip_y_origin: 0,
+            clip_mask: None,
+            dash_offset: 0,
+            dashes: 4,
+        }
+    }
 }
 
 impl<'a> Into<GCAttributes> for GContextParams<'a> {
@@ -197,7 +208,7 @@ impl X11Connection {
 
 impl<'a> Window<'a> {
     pub async fn clear_area(
-        &self,
+        self,
         exposures: bool,
         x: i16,
         y: i16,
@@ -220,7 +231,7 @@ impl<'a> Window<'a> {
 }
 
 impl<'a> GContext<'a> {
-    pub async fn change_attributes(&self, params: GContextParams<'_>) -> Result<()> {
+    pub async fn change_attributes(self, params: GContextParams<'_>) -> Result<()> {
         send_request!(
             self.connection,
             ChangeGC {
@@ -231,7 +242,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn copy_to(&self, dst_gcontext: GContext<'_>, bitmask: GCBitmask) -> Result<()> {
+    pub async fn copy_to(self, dst_gcontext: GContext<'_>, bitmask: GCBitmask) -> Result<()> {
         send_request!(
             self.connection,
             CopyGC {
@@ -243,7 +254,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn set_dashes(&self, dash_offset: u16, dashes: Vec<u8>) -> Result<()> {
+    pub async fn set_dashes(self, dash_offset: u16, dashes: Vec<u8>) -> Result<()> {
         send_request!(
             self.connection,
             SetDashes {
@@ -256,7 +267,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn set_clip_rectangles(
-        &self,
+        self,
         sorting: ClipSorting,
         clip_x_origin: i16,
         clip_y_origin: i16,
@@ -275,7 +286,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn free(&self) -> Result<()> {
+    pub async fn free(self) -> Result<()> {
         send_request!(
             self.connection,
             FreeGC {
@@ -286,7 +297,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn copy_area(
-        &self,
+        self,
         src: impl Into<Drawable<'_>>,
         dst: impl Into<Drawable<'_>>,
         src_x: i16,
@@ -314,7 +325,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn copy_plane(
-        &self,
+        self,
         src: impl Into<Drawable<'_>>,
         dst: impl Into<Drawable<'_>>,
         src_x: i16,
@@ -344,7 +355,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_point(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         coordinate_mode: CoordinateMode,
         points: Vec<Point>,
@@ -362,7 +373,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_line(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         coordinate_mode: CoordinateMode,
         points: Vec<Point>,
@@ -380,7 +391,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_segment(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         segments: Vec<Segment>,
     ) -> Result<()> {
@@ -396,7 +407,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_rectangle(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         rectangles: Vec<Rectangle>,
     ) -> Result<()> {
@@ -411,7 +422,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_arc(&self, drawable: impl Into<Drawable<'_>>, arcs: Vec<Arc>) -> Result<()> {
+    pub async fn poly_arc(self, drawable: impl Into<Drawable<'_>>, arcs: Vec<Arc>) -> Result<()> {
         send_request!(
             self.connection,
             PolyArc {
@@ -424,7 +435,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn fill_poly(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         coordinate_mode: CoordinateMode,
         shape: Shape,
@@ -444,7 +455,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_fill_rectangle(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         rectangles: Vec<Rectangle>,
     ) -> Result<()> {
@@ -460,7 +471,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_fill_arc(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         arcs: Vec<Arc>,
     ) -> Result<()> {
@@ -476,7 +487,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn put_image(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         format: ImageFormat,
         width: u16,
@@ -506,7 +517,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn get_image(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         format: ImageFormat,
         x: i16,
@@ -543,7 +554,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_text8(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         x: i16,
         y: i16,
@@ -585,7 +596,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn poly_text16(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         x: i16,
         y: i16,
@@ -629,7 +640,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn image_text8(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         x: i16,
         y: i16,
@@ -650,7 +661,7 @@ impl<'a> GContext<'a> {
     }
 
     pub async fn image_text16(
-        &self,
+        self,
         drawable: impl Into<Drawable<'_>>,
         x: i16,
         y: i16,

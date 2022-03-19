@@ -30,4 +30,16 @@ fn main() {
         // debug_mode: true,
         ..Default::default()
     }).expect("failed to build xfixes.pspec");
+    protospec_build::compile_spec("xrandr", include_str!("./spec/xrandr.pspec"), &protospec_build::Options {
+        include_async: false,
+        use_anyhow: true,
+        // debug_mode: true,
+        ..Default::default()
+    }).expect("failed to build xrandr.pspec");
+    protospec_build::compile_spec("shape", include_str!("./spec/shape.pspec"), &protospec_build::Options {
+        include_async: false,
+        use_anyhow: true,
+        // debug_mode: true,
+        ..Default::default()
+    }).expect("failed to build shape.pspec");
 }

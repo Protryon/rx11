@@ -1,0 +1,561 @@
+import_ffi utf8 as type;
+import_ffi pad as function;
+
+type PictType = enum u8 {
+    Indexed = 0,
+    Direct,
+};
+
+type PictOp = enum u8 {
+    Clear = 0,
+    Src,
+    Dst,
+    Over,
+    OverReverse,
+    In,
+    InReverse,
+    Out,
+    OutReverse,
+    Atop,
+    AtopReverse,
+    Xor,
+    Add,
+    Saturate,
+
+    DisjointClear = 16,
+    DisjointSrc,
+    DisjointDst,
+    DisjointOver,
+    DisjointOverReverse,
+    DisjointIn,
+    DisjointInReverse,
+    DisjointOut,
+    DisjointOutReverse,
+    DisjointAtop,
+    DisjointAtopReverse,
+    DisjointXor,
+
+    ConjointClear = 32,
+    ConjointSrc,
+    ConjointDst,
+    ConjointOver,
+    ConjointOverReverse,
+    ConjointIn,
+    ConjointInReverse,
+    ConjointOut,
+    ConjointOutReverse,
+    ConjointAtop,
+    ConjointAtopReverse,
+    ConjointXor,
+    
+    Multiply = 48,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    HSLHue,
+    HSLSaturation,
+    HSLColor,
+    HSLLuminosity,
+};
+
+type PolyEdge = enum u32 {
+    Sharp = 0,
+    Smooth,
+};
+
+type PolyMode = enum u32 {
+    Precise = 0,
+    Imprecise,
+};
+
+type CreatePictureMask = bitfield u32 {
+    Repeat = 0x1,
+    AlphaMap,
+    AlphaXOrigin,
+    AlphaYOrigin,
+    ClipXOrigin,
+    ClipYOrigin,
+    ClipMask,
+    GraphicsExposure,
+    SubwindowMode,
+    PolyEdge,
+    PolyMode,
+    Dither,
+    ComponentAlpha,
+};
+
+type SubPixel = enum u32 {
+    Unknown = 0,
+    HorizontalRGB,
+    HorizontalBGR,
+    VerticalRGB,
+    VerticalBGR,
+    None,
+};
+
+type Repeat = enum u32 {
+    None = 0,
+    Normal,
+    Pad,
+    Reflect,
+};
+
+type Fp1616 = container {
+    integral: i16,
+    frac: u16,
+};
+
+type XRenderErrorCode = enum u8 {
+    PictFormat = 0,
+    Picture,
+    PictOp,
+    GlyphSet,
+    Glyph,
+};
+
+type DirectFormat = container {
+    red_shift: u16,
+    red_mask: u16,
+    green_shift: u16,
+    green_mask: u16,
+    blue_shift: u16,
+    blue_mask: u16,
+    alpha_shift: u16,
+    alpha_mask: u16,
+};
+
+type PictFormatInfo = container {
+    pict_format: u32,
+    type_: PictType,
+    depth: u8,
+    .pad: 2,
+    direct_format: u32,
+    colormap: u32,
+};
+
+type PictVisual = container {
+    visual: u32,
+    pict_format: u32,
+};
+
+type PictDepth = container {
+    depth: u8,
+    .pad: 1,
+    num_pict_visuals: u16 = len(pict_visuals) :> u16,
+    .pad: 4,
+    pict_visual: PictVisual[num_pict_visuals],
+};
+
+type PictScreen = container {
+    num_pict_depths: u32 = len(pict_depths) :> u32,
+    fallback: PictFormat,
+    pict_depths: PictDepth[num_pict_depths],
+};
+
+type IndexValue = container {
+    pixel: u32,
+    red: u16,
+    green: u16,
+    blue: u16,
+    alpha: u16,
+};
+
+type Color = container {
+    red: u16,
+    green: u16,
+    blue: u16,
+    alpha: u16,
+};
+
+type PointFix = container {
+    x: Fp1616,
+    y: Fp1616,
+};
+
+type LineFix = container {
+    p1: PointFix,
+    p2: PointFix,
+};
+
+type TriangleFix = container {
+    p1: PointFix,
+    p2: PointFix,
+    p3: PointFix,
+};
+
+type TrapezoidFix = container {
+    top: Fp1616,
+    bottom: Fp1616,
+    left: LineFix,
+    right: LineFix,
+};
+
+type GlyphInfo = container {
+    width: u16,
+    height: u16,
+    x: i16,
+    y: i16,
+    x_off: i16,
+    y_off: i16,
+};
+
+type QueryVersionRequest = container {
+    client_major_version: u32,
+    client_minor_version: u32,
+};
+
+type QueryVersionResponse = container {
+    major_version: u32,
+    minor_version: u32,
+    .pad: 16,
+};
+
+type QueryPictFormatsRequest = container {
+};
+
+type QueryPictFormatsResponse = container {
+    num_formats: u32 = len(formats) :> u32,
+    num_screens: u32 = len(screens) :> u32,
+    num_depths: u32,
+    num_visuals: u32,
+    num_subpixel: u32 = len(subpixels) :> u32,
+    .pad: 4,
+    formats: PictFormatInfo[num_formats],
+    screens: PictScreen[num_screens],
+    subpixels: SubPixel[num_subpixel],
+};
+
+type QueryPictIndexValuesRequest = container {
+    pict_format: u32,
+};
+
+type QueryPictIndexValuesResponse = container {
+    num_values: u32 = len(values) :> u32,
+    .pad: 20,
+    values: IndexValue[num_values],
+};
+
+// copied from x11.pspec (and expanded)
+type SubwindowMode = enum u32 {
+    ClipByChildren = 0,
+    IncludeInferiors,
+};
+
+type CreatePictureData(mask: CreatePictureMask) = container {
+    repeat: u32 { mask == CreatePictureMask::Repeat },
+    alphamap_picture: u32 { mask == CreatePictureMask::AlphaMap },
+    alpha_x_origin: i32 { mask == CreatePictureMask::AlphaXOrigin },
+    alpha_y_origin: i32 { mask == CreatePictureMask::AlphaYOrigin },
+    clip_x_origin: i32 { mask == CreatePictureMask::ClipXOrigin },
+    clip_y_origin: i32 { mask == CreatePictureMask::ClipYOrigin },
+    clip_mask_pixmap: u32 { mask == CreatePictureMask::ClipMask },
+    graphics_exposure: u32 { mask == CreatePictureMask::GraphicsExposure },
+    subwindow_mode: SubwindowMode { mask == CreatePictureMask::SubwindowMode },
+    poly_edge: PolyEdge { mask == CreatePictureMask::PolyEdge },
+    poly_mode: PolyMode { mask == CreatePictureMask::PolyMode },
+    dither_atom: u32 { mask == CreatePictureMask::Dither },
+    component_alpha: u32 { mask == CreatePictureMask::ComponentAlpha },
+};
+
+type CreatePictureRequest = container {
+    picture: u32,
+    drawable: u32,
+    pict_format: u32,
+    mask: CreatePictureMask,
+    data: CreatePictureData(mask),
+};
+
+type ChangePictureRequest = container {
+    picture: u32,
+    mask: CreatePictureMask,
+    data: CreatePictureData(mask),
+};
+
+// copied from x11.pspec
+type Rectangle = container {
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+};
+
+type Rectan
+type SetPictureClipRectanglesRequest = container {
+    picture: u32,
+    clip_x_origin: i16,
+    clip_y_origin: i16,
+    rectangles: Rectangle[..],
+};
+
+type FreePictureRequest = container {
+    picture: u32,
+};
+
+type CompositeRequest = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    mask_picture: u32,
+    dst_picture: u32,
+    src_x; i16,
+    src_y: i16,
+    mask_x: i16,
+    mask_y: i16,
+    dst_x: i16,
+    dst_y: i16,
+    width: u16,
+    height: u16,
+};
+
+type TrapezoidsRequest = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    src_x; i16,
+    src_y: i16,
+    trapezoids: TrapezoidFix[..],
+};
+
+type TrianglesRequest = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    src_x; i16,
+    src_y: i16,
+    triangles: TriangleFix[..],
+};
+
+type TriStripRequest = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    src_x; i16,
+    src_y: i16,
+    points: PointFix[..],
+};
+
+type TriFanRequest = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    src_x; i16,
+    src_y: i16,
+    points: PointFix[..],
+};
+
+type CreateGlyphSetRequest = container {
+    glyphset: u32,
+    pict_format: u32,
+};
+
+type ReferenceGlyphSetRequest = container {
+    glyphset: u32,
+    existing_glyphset: u32,
+};
+
+type FreeGlyphSetRequest = container {
+    glyphset: u32,
+};
+
+type AddGlyphsRequest = container {
+    glyphset: u32,
+    glyphs_len: u32 = len(glyph_infos) :> u32,
+    glyph_ids: u32[glyphs_len],
+    glyph_infos: GlyphInfo[glyphs_len],
+    data: u8[..],
+};
+
+type FreeGlyphsRequest = container {
+    glyphset: u32,
+    glyph: u32[..],
+};
+
+type GlyphCmd8 = container {
+    len: u8, // todo: calculate
+    .pad: 3,
+    dx: i16,
+    dy: i16,
+    glyphset: u32 { len == 0xFF },
+    chars: u8[len] { len != 0xFF },
+    .pad: pad(4, len) { len != 0xFF },
+};
+
+type GlyphCmd16 = container {
+    len: u8, // todo: calculate
+    .pad: 3,
+    dx: i16,
+    dy: i16,
+    glyphset: u32 { len == 0xFF },
+    chars: u16[len] { len != 0xFF },
+    .pad: pad(4, len * 2) { len != 0xFF },
+};
+
+type GlyphCmd32 = container {
+    len: u8, // todo: calculate
+    .pad: 3,
+    dx: i16,
+    dy: i16,
+    glyphset: u32 { len == 0xFF },
+    chars: u32[len] { len != 0xFF },
+};
+
+type CompositeGlyphs8Request = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    glyphset: u32,
+    src_x; i16,
+    src_y: i16,
+    glyph_cmds: GlyphCmd8[..],
+};
+
+type CompositeGlyphs16Request = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    glyphset: u32,
+    src_x; i16,
+    src_y: i16,
+    glyph_cmds: GlyphCmd16[..],
+};
+
+type CompositeGlyphs32Request = container {
+    op: PictOp,
+    .pad: 3,
+    src_picture: u32,
+    dst_picture: u32,
+    mask_pict_format: u32,
+    glyphset: u32,
+    src_x; i16,
+    src_y: i16,
+    glyph_cmds: GlyphCmd32[..],
+};
+
+type FillRectanglesRequest = container {
+    op: PictOp,
+    .pad: 3,
+    dst_picture: u32,
+    color: Color,
+    rectangles: Rectangle[..],
+};
+
+type CreateCursorRequest = container {
+    cursor: u32,
+    src_picture: u32,
+    x: u16,
+    y: u16,
+};
+
+type Transform = Fp1616[9];
+
+type SetPictureTransformRequest = container {
+    picture: u32,
+    transform: Transform,
+};
+
+type String8 = container {
+    len: u8 = len(string) :> u8,
+    string: utf8(len),
+};
+
+type QueryFiltersRequest = container {
+    drawable: u32,
+};
+
+type QueryFiltersResponse = container {
+    num_aliases: u32 = len(aliases) :> u32,
+    num_filters: u32 = len(filters) :> u32,
+    .pad: 16,
+    aliases: u16[num_aliases],
+    filters: String8[num_filters],
+};
+
+type SetPictureFilterRequest = container {
+    picture: u32,
+    filter_len: u16 = len(filter) :> u16,
+    .pad: 2,
+    filter: utf8(filter_len),
+    .pad: pad(4, filter_len),
+    values: Fp1616[..],
+};
+
+type AnimCursorElt = container {
+    cursor: u32,
+    delay: u32,
+};
+
+type CreateAnimCursorRequest = container {
+    cursor: u32,
+    cursors: AnimCursorElt[..],
+};
+
+type SpanFix = container {
+    l: Fp1616,
+    r: Fp1616,
+    y: Fp1616,
+};
+
+type Trap = container {
+    top: SpanFix,
+    bottom: SpanFix,
+};
+
+type AddTrapsRequest = container {
+    picture: u32,
+    x_off: i16,
+    y_off: i16,
+    traps: Trap[..],
+};
+
+type CreateSolidFillRequest = container {
+    picture: u32,
+    color: Color,
+};
+
+type CreateLinearGradientRequest = container {
+    picture: u32,
+    p1: PointFix,
+    p2: PointFix,
+    num_stops: u32 = len(stops) :> u32,
+    stops: Fp1616[num_stops],
+    colors: Color[num_stops],
+};
+
+type CreateRadialGradientRequest = container {
+    picture: u32,
+    inner: PointFix,
+    outer: PointFix,
+    inner_radius: Fp1616,
+    outer_radius: Fp1616,
+    num_stops: u32 = len(stops) :> u32,
+    stops: Fp1616[num_stops],
+    colors: Color[num_stops],
+};
+
+type CreateConicalGradientRequest = container {
+    picture: u32,
+    center: PointFix,
+    angle: Fp1616,
+    num_stops: u32 = len(stops) :> u32,
+    stops: Fp1616[num_stops],
+    colors: Color[num_stops],
+};

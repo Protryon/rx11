@@ -25,7 +25,7 @@ pub use crate::coding::x11::{
     EventCode,
 };
 
-use super::XFEvent;
+use super::{XFEvent, XREvent, ShapeEvent};
 
 #[derive(Clone, Debug)]
 pub enum Event<'a> {
@@ -64,6 +64,8 @@ pub enum Event<'a> {
     MappingNotify(MappingNotifyEvent),
     XKB(XKBEvent<'a>),
     XF(XFEvent<'a>),
+    XR(XREvent<'a>),
+    Shape(ShapeEvent<'a>),
     // generic event
     XI(XIEvent<'a>),
     UnknownCore(u8, Vec<u8>),
@@ -106,6 +108,8 @@ impl<'a> Event<'a> {
             Event::ClientMessage(_) => EventCode::ClientMessage as u8,
             Event::MappingNotify(_) => EventCode::MappingNotify as u8,
             Event::XF(e) => e.code() as u8 + connection.get_ext_info(XFIXES_EXT_NAME).ok_or_else(|| anyhow!("missing xfixes extension while sending event"))?.event_start,
+            Event::XR(e) => e.code() as u8 + connection.get_ext_info(XRANDR_EXT_NAME).ok_or_else(|| anyhow!("missing xrandr extension while sending event"))?.event_start,
+            Event::Shape(e) => e.code() as u8 + connection.get_ext_info(SHAPE_EXT_NAME).ok_or_else(|| anyhow!("missing shape extension while sending event"))?.event_start,
             Event::XKB(_) => connection.get_ext_info(XKB_EXT_NAME).ok_or_else(|| anyhow!("missing xkb extension while sending event"))?.event_start,
             Event::XI(_) => EventCode::Generic as u8,
             Event::UnknownCore(code, _) => *code,
@@ -169,6 +173,12 @@ impl<'a> Event<'a> {
                     crate::requests::XFIXES_EXT_NAME => {
                         return Ok(Event::XF(XFEvent::from_protocol(connection, e, code - extension.event_start).await?));
                     },
+                    crate::requests::XRANDR_EXT_NAME => {
+                        return Ok(Event::XR(XREvent::from_protocol(connection, e, code - extension.event_start).await?));
+                    },
+                    crate::requests::SHAPE_EXT_NAME => {
+                        return Ok(Event::Shape(ShapeEvent::from_protocol(connection, e, code - extension.event_start).await?));
+                    },
                     _ => bail!("unimplemented event for extension {}", extension.key()),
                 }
             },
@@ -225,6 +235,20 @@ impl<'a> Event<'a> {
                 event.encode_sync(&mut data_raw, code)?;
                 Ext(data_raw)
             },
+            Event::XR(e) => {
+                let code = e.code();
+                let event = e.to_protocol();
+                let mut data_raw = vec![];
+                event.encode_sync(&mut data_raw, code)?;
+                Ext(data_raw)
+            },
+            Event::Shape(e) => {
+                let code = e.code();
+                let event = e.to_protocol();
+                let mut data_raw = vec![];
+                event.encode_sync(&mut data_raw, code)?;
+                Ext(data_raw)
+            },
             Event::XI(e) => {
                 let event = e.to_protocol();
                 let mut data_raw = vec![];
@@ -243,16 +267,6 @@ impl<'a> Event<'a> {
         Ok((code, event))
     }
 }
-
-// impl From<coding::x11::Event> for Event {
-//     fn from(from: coding::x11::Event) -> Self {
-//     }
-// }
-
-// impl From<Event> for coding::x11::Event {
-//     fn from(from: Event) -> Self {
-//     }
-// }
 
 #[derive(Clone, Debug)]
 pub struct KeyEvent<'a> {

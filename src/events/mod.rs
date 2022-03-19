@@ -9,3 +9,9 @@ pub use xinput::*;
 
 pub mod xfixes;
 pub use xfixes::*;
+
+pub mod xrandr;
+pub use xrandr::*;
+
+pub mod shape;
+pub use shape::*;

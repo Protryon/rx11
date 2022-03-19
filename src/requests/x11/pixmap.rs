@@ -28,7 +28,7 @@ impl X11Connection {
 }
 
 impl<'a> Pixmap<'a> {
-    pub async fn free(&self) -> Result<()> {
+    pub async fn free(self) -> Result<()> {
         send_request!(self.connection, FreePixmap {
             pixmap: self.handle,
         });

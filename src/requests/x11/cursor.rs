@@ -67,14 +67,14 @@ impl X11Connection {
 }
 
 impl<'a> Cursor<'a> {
-    pub async fn free_cursor(&self) -> Result<()> {
+    pub async fn free_cursor(self) -> Result<()> {
         send_request!(self.connection, FreeCursor {
             cursor: self.handle,
         });
         Ok(())
     }
 
-    pub async fn recolor_cursor(&self, fore: Rgb16, back: Rgb16) -> Result<()> {
+    pub async fn recolor_cursor(self, fore: Rgb16, back: Rgb16) -> Result<()> {
         send_request!(self.connection, RecolorCursor {
             cursor: self.handle,
             color: CursorColor {

@@ -12,6 +12,7 @@ pub use crate::coding::{
     ChangePropertyMode,
     StackMode,
     ConfigureWindowBitmask,
+    EventMask,
 };
 
 #[derive(Clone, Copy)]
@@ -23,7 +24,28 @@ pub struct Window<'a> {
     pub(crate) connection: &'a X11Connection,
 }
 
-#[derive(Default, Builder, Debug)]
+impl<'a> PartialEq for Window<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl<'a> Eq for Window<'a> {}
+
+impl<'a> PartialOrd for Window<'a> {
+
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.handle.partial_cmp(&other.handle)
+    }
+}
+
+impl<'a> Ord for Window<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.handle.cmp(&other.handle)
+    }
+}
+
+#[derive(Builder, Debug)]
 #[builder(default)]
 pub struct WindowParams<'a> {
     pub depth: u8,
@@ -31,16 +53,29 @@ pub struct WindowParams<'a> {
     pub parent: Option<Window<'a>>,
     pub x: i16,
     pub y: i16,
-    #[builder(default = "100")]
     pub width: u16,
-    #[builder(default = "100")]
     pub height: u16,
-    #[builder(default = "1")]
     pub border_width: u16,
-    #[builder(default = "WindowClass::InputOutput")]
     pub window_class: WindowClass,
     pub visual: WindowVisual,
     pub attributes: WindowAttributes<'a>,
+}
+
+impl<'a> Default for WindowParams<'a> {
+    fn default() -> Self {
+        Self {
+            depth: 0,
+            parent: None,
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            border_width: 1,
+            window_class: Default::default(),
+            visual: Default::default(),
+            attributes: Default::default(),
+        }
+    }
 }
 
 #[derive(Default, Builder, Debug)]
@@ -111,24 +146,18 @@ impl Default for WindowVisual {
     }
 }
 
-#[derive(Builder, Default, Debug, Clone)]
+#[derive(Builder, Debug, Clone)]
 #[builder(default)]
 pub struct WindowAttributes<'a> {
-    #[builder(default = "BackgroundPixmap::None")]
     pub background_pixmap: BackgroundPixmap<'a>,
     #[builder(setter(into, strip_option), default)]
     pub background_pixel: Option<Pixel>,
-    #[builder(default = "BorderPixmap::CopyFromParent")]
     pub border_pixmap: BorderPixmap<'a>,
     #[builder(setter(into, strip_option), default)]
     pub border_pixel: Option<Pixel>,
-    #[builder(default = "BitGravity::Forget")]
     pub bit_gravity: BitGravity,
-    #[builder(default = "WinGravity::NorthWest")]
     pub win_gravity: WinGravity,
-    #[builder(default = "BackingStore::NotUseful")]
     pub backing_store: BackingStore,
-    #[builder(default = "u32::MAX")]
     pub backing_planes: u32,
     #[builder(setter(into, strip_option), default)]
     pub backing_pixel: Option<Pixel>,
@@ -139,6 +168,28 @@ pub struct WindowAttributes<'a> {
     pub colormap: WindowColormap<'a>,
     #[builder(setter(into, strip_option), default)]
     pub cursor: Option<Cursor<'a>>,
+}
+
+impl<'a> Default for WindowAttributes<'a> {
+    fn default() -> Self {
+        Self {
+            background_pixmap: BackgroundPixmap::None,
+            background_pixel: None,
+            border_pixmap: BorderPixmap::CopyFromParent,
+            border_pixel: None,
+            bit_gravity: BitGravity::Forget,
+            win_gravity: WinGravity::NorthWest,
+            backing_store: BackingStore::NotUseful,
+            backing_planes: u32::MAX,
+            backing_pixel: None,
+            override_redirect: false,
+            save_under: false,
+            event_mask: EventMask::ZERO,
+            do_not_propagate_mask: EventMask::ZERO,
+            colormap: WindowColormap::CopyFromParent,
+            cursor: None,
+        }
+    }
 }
 
 impl<'a> Into<crate::coding::WindowAttributes> for WindowAttributes<'a> {
@@ -317,8 +368,7 @@ impl X11Connection {
     }
 }
 impl<'a> Window<'a> {
-
-    pub async fn change_attributes(&self, params: WindowAttributes<'_>) -> Result<()> {
+    pub async fn change_attributes(self, params: WindowAttributes<'_>) -> Result<()> {
         let attributes = params.into();
         send_request!(self.connection, ChangeWindowAttributes {
             window: self.handle,
@@ -327,7 +377,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn get_attributes(&self) -> Result<FetchedWindowAttributes<'a>> {
+    pub async fn get_attributes(self) -> Result<FetchedWindowAttributes<'a>> {
         let seq = send_request!(self.connection, GetWindowAttributes {
             window: self.handle,
         });
@@ -360,35 +410,35 @@ impl<'a> Window<'a> {
         })
     }
 
-    pub async fn destroy(&self) -> Result<()> {
+    pub async fn destroy(self) -> Result<()> {
         send_request!(self.connection, DestroyWindow {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn destroy_subwindows(&self) -> Result<()> {
+    pub async fn destroy_subwindows(self) -> Result<()> {
         send_request!(self.connection, DestroySubwindows {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn legacy_save_set_add(&self) -> Result<()> {
+    pub async fn legacy_save_set_add(self) -> Result<()> {
         send_request!(self.connection, InsertDelete::Insert as u8, ChangeSaveSet {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn legacy_save_set_delete(&self) -> Result<()> {
+    pub async fn legacy_save_set_delete(self) -> Result<()> {
         send_request!(self.connection, InsertDelete::Delete as u8, ChangeSaveSet {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn reparent(&self, new_parent: Window<'_>, x: i16, y: i16) -> Result<()> {
+    pub async fn reparent(self, new_parent: Window<'_>, x: i16, y: i16) -> Result<()> {
         send_request!(self.connection, ReparentWindow {
             window: self.handle,
             parent: new_parent.handle,
@@ -398,35 +448,35 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn map(&self) -> Result<()> {
+    pub async fn map(self) -> Result<()> {
         send_request!(self.connection, MapWindow {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn map_subwindows(&self) -> Result<()> {
+    pub async fn map_subwindows(self) -> Result<()> {
         send_request!(self.connection, MapSubwindows {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn unmap(&self) -> Result<()> {
+    pub async fn unmap(self) -> Result<()> {
         send_request!(self.connection, UnmapWindow {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn unmap_subwindows(&self) -> Result<()> {
+    pub async fn unmap_subwindows(self) -> Result<()> {
         send_request!(self.connection, UnmapSubwindows {
             window: self.handle,
         });
         Ok(())
     }
 
-    pub async fn configure(&self, config: WindowConfig<'_>) -> Result<()> {
+    pub async fn configure(self, config: WindowConfig<'_>) -> Result<()> {
         let mut bitmask = ConfigureWindowBitmask::ZERO;
         if config.x.is_some() {
             bitmask.set_x();
@@ -464,7 +514,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
     
-    pub async fn circulate(&self, direction: CirculateWindowDirection) -> Result<()> {
+    pub async fn circulate(self, direction: CirculateWindowDirection) -> Result<()> {
         send_request!(self.connection, direction as u8, CirculateWindow {
             window: self.handle,
         });
@@ -472,7 +522,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn query_tree(&self) -> Result<QueryTreeResult<'_>> {
+    pub async fn query_tree(self) -> Result<QueryTreeResult<'a>> {
         let seq = send_request!(self.connection, QueryTree {
             window: self.handle,
         });
@@ -492,6 +542,10 @@ impl<'a> Window<'a> {
             },
             children: reply.children_windows.into_iter().map(|handle| Window { handle, connection: self.connection }).collect(),
         })
+    }
+
+    pub async fn get_geometry(self) -> Result<Geometry<'a>> {
+        self.connection.get_geometry(self).await
     }
 }
 

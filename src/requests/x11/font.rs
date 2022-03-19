@@ -34,14 +34,14 @@ impl<'a> From<GContext<'a>> for Fontable<'a> {
 }
 
 impl<'a> Fontable<'a> {
-    pub(crate) fn handle(&self) -> u32 {
+    pub(crate) fn handle(self) -> u32 {
         match self {
             Fontable::Font(x) => x.handle,
             Fontable::GContext(x) => x.handle,
         }
     }
 
-    pub(crate) fn connection(&self) -> &X11Connection {
+    pub(crate) fn connection(self) -> &'a X11Connection {
         match self {
             Fontable::Font(x) => x.connection,
             Fontable::GContext(x) => x.connection,
@@ -110,26 +110,26 @@ impl X11Connection {
 }
 
 impl<'a> Font<'a> {
-    pub async fn close(&self) -> Result<()> {
+    pub async fn close(self) -> Result<()> {
         send_request!(self.connection, CloseFont {
             font: self.handle,
         });
         Ok(())
     }
 
-    pub async fn query(&self) -> Result<FontQueryInfo> {
-        Fontable::Font(*self).query_font().await
+    pub async fn query(self) -> Result<FontQueryInfo> {
+        Fontable::Font(self).query_font().await
     }
 
-    pub async fn query_text_extents(&self, string: impl AsRef<str>) -> Result<QueryTextExtentsReply> {
-        Fontable::Font(*self).query_text_extents(string).await
+    pub async fn query_text_extents(self, string: impl AsRef<str>) -> Result<QueryTextExtentsReply> {
+        Fontable::Font(self).query_text_extents(string).await
     }
 }
 
 impl<'a> Fontable<'a> {
     //todo: get_fonts_with_info
 
-    pub async fn query_font(&self) -> Result<FontQueryInfo> {
+    pub async fn query_font(self) -> Result<FontQueryInfo> {
         let seq = send_request!(self.connection(), QueryFont {
             fontable: self.handle(),
         });
@@ -160,7 +160,7 @@ impl<'a> Fontable<'a> {
         })
     }
     
-    pub async fn query_text_extents(&self, string: impl AsRef<str>) -> Result<QueryTextExtentsReply> {
+    pub async fn query_text_extents(self, string: impl AsRef<str>) -> Result<QueryTextExtentsReply> {
         let string = string.as_ref().to_string();
         let is_odd_length = (string.len() * 2) % 4 == 2;
         let seq = send_request!(self.connection(), is_odd_length as u8, QueryTextExtents {

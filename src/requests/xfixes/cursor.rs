@@ -7,7 +7,7 @@ pub use crate::coding::xfixes::{
 use super::*;
 
 impl<'a> Window<'a> {
-    pub async fn select_cursor_input(&self, event_mask: CursorNotifyMask) -> Result<()> {
+    pub async fn select_cursor_input(self, event_mask: CursorNotifyMask) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::SelectCursorInput, true, SelectCursorInputRequest {
             window: self.handle,
             event_mask: event_mask,
@@ -16,7 +16,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn hide_cursor(&self) -> Result<()> {
+    pub async fn hide_cursor(self) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::HideCursor, true, HideCursorRequest {
             window: self.handle,
         });
@@ -24,7 +24,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub async fn show_cursor(&self) -> Result<()> {
+    pub async fn show_cursor(self) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::HideCursor, true, ShowCursorRequest {
             window: self.handle,
         });
@@ -79,7 +79,7 @@ impl X11Connection {
 }
 
 impl<'a> Cursor<'a> {
-    pub async fn set_name(&self, name: impl AsRef<str>) -> Result<()> {
+    pub async fn set_name(self, name: impl AsRef<str>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::SetCursorName, true, SetCursorNameRequest {
             cursor: self.handle,
             name: name.as_ref().to_string(),
@@ -88,7 +88,7 @@ impl<'a> Cursor<'a> {
         Ok(())
     }
 
-    pub async fn get_name(&self) -> Result<Option<Atom>> {
+    pub async fn get_name(self) -> Result<Option<Atom>> {
         let seq = send_request_xfixes!(self.connection, XFOpcode::GetCursorName, false, GetCursorNameRequest {
             cursor: self.handle,
         });
@@ -105,7 +105,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    pub async fn change_from(&self, target: Cursor<'_>) -> Result<()> {
+    pub async fn change_from(self, target: Cursor<'_>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::ChangeCursor, true, ChangeCursorRequest {
             src_cursor: self.handle,
             dst_cursor: target.handle,
@@ -114,7 +114,7 @@ impl<'a> Cursor<'a> {
         Ok(())
     }
 
-    pub async fn change_from_name(&self, name: impl AsRef<str>) -> Result<()> {
+    pub async fn change_from_name(self, name: impl AsRef<str>) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::ChangeCursorByName, true, ChangeCursorByNameRequest {
             src_cursor: self.handle,
             name: name.as_ref().to_string(),

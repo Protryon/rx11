@@ -2,7 +2,7 @@
 pub struct Pixel(pub u32);
 
 impl Pixel {
-    pub const fn rgb(&self) -> (u8, u8, u8) {
+    pub const fn rgb(self) -> (u8, u8, u8) {
         (
             (self.0 >> 24) as u8,
             (self.0 >> 16) as u8,

@@ -52,13 +52,13 @@ async fn test_x11() {
                             // EventMask::BUTTON_MOTION |
                             // EventMask::KEYMAP_STATE |
                             EventMask::EXPOSURE |
-                EventMask::VISIBILITY_CHANGE |
-                EventMask::STRUCTURE_NOTIFY |
-                EventMask::SUBSTRUCTURE_NOTIFY |
-                // EventMask::FOCUS_CHANGE |
-                EventMask::PROPERTY_CHANGE |
-                EventMask::COLORMAP_CHANGE |
-                EventMask::OWNER_GRAB_BUTTON,
+                            EventMask::VISIBILITY_CHANGE |
+                            EventMask::STRUCTURE_NOTIFY |
+                            EventMask::SUBSTRUCTURE_NOTIFY |
+                            // EventMask::FOCUS_CHANGE |
+                            EventMask::PROPERTY_CHANGE |
+                            EventMask::COLORMAP_CHANGE |
+                            EventMask::OWNER_GRAB_BUTTON,
                         )
                         // EventMask::ALL & !EventMask::POINTER_MOTION_HINT
                         .build()
@@ -153,6 +153,12 @@ async fn test_x11() {
         println!("props = {:?}", properties);
     }
 
+    let root_window = connected.root_window(0).unwrap();
+    let monitors = root_window.get_monitors().await.unwrap().1;
+    for monitor in monitors {
+        println!("monitor = {:?}", monitor);
+    }
+
     let current_pointer = window
         .get_client_pointer()
         .await
@@ -200,15 +206,18 @@ Generic Event Extension: QueryExtensionReply { present: true, major_opcode: 128,
 XKEYBOARD: QueryExtensionReply { present: true, major_opcode: 135, first_event: 85, first_error: 137 }
 XInputExtension: QueryExtensionReply { present: true, major_opcode: 131, first_event: 66, first_error: 129 }
 XFIXES: QueryExtensionReply { present: true, major_opcode: 138, first_event: 87, first_error: 140 }
-
-SHAPE: QueryExtensionReply { present: true, major_opcode: 129, first_event: 64, first_error: 0 }
 RANDR: QueryExtensionReply { present: true, major_opcode: 140, first_event: 89, first_error: 147 }
+SHAPE: QueryExtensionReply { present: true, major_opcode: 129, first_event: 64, first_error: 0 }
+
+MIT-SHM: QueryExtensionReply { present: true, major_opcode: 130, first_event: 65, first_error: 128 }
+RENDER: QueryExtensionReply { present: true, major_opcode: 139, first_event: 0, first_error: 142 }
+DPMS: QueryExtensionReply { present: true, major_opcode: 147, first_event: 0, first_error: 0 }
+DRI2: QueryExtensionReply { present: true, major_opcode: 154, first_event: 119, first_error: 0 }
 
 RECORD: QueryExtensionReply { present: true, major_opcode: 146, first_event: 0, first_error: 154 }
 XINERAMA: QueryExtensionReply { present: true, major_opcode: 141, first_event: 0, first_error: 0 }
 Composite: QueryExtensionReply { present: true, major_opcode: 142, first_event: 0, first_error: 0 }
-RENDER: QueryExtensionReply { present: true, major_opcode: 139, first_event: 0, first_error: 142 }
-MIT-SHM: QueryExtensionReply { present: true, major_opcode: 130, first_event: 65, first_error: 128 }
+Present: QueryExtensionReply { present: true, major_opcode: 148, first_event: 0, first_error: 0 }
 
 XTEST: QueryExtensionReply { present: true, major_opcode: 132, first_event: 0, first_error: 0 }
 SYNC: QueryExtensionReply { present: true, major_opcode: 134, first_event: 83, first_error: 134 }
@@ -218,14 +227,12 @@ XINERAMA: QueryExtensionReply { present: true, major_opcode: 141, first_event: 0
 DAMAGE: QueryExtensionReply { present: true, major_opcode: 143, first_event: 91, first_error: 152 }
 MIT-SCREEN-SAVER: QueryExtensionReply { present: true, major_opcode: 144, first_event: 92, first_error: 0 }
 DOUBLE-BUFFER: QueryExtensionReply { present: true, major_opcode: 145, first_event: 0, first_error: 153 }
-DPMS: QueryExtensionReply { present: true, major_opcode: 147, first_event: 0, first_error: 0 }
-Present: QueryExtensionReply { present: true, major_opcode: 148, first_event: 0, first_error: 0 }
+
 X-Resource: QueryExtensionReply { present: true, major_opcode: 149, first_event: 0, first_error: 0 }
 XVideo: QueryExtensionReply { present: true, major_opcode: 150, first_event: 93, first_error: 155 }
-GLX: QueryExtensionReply { present: true, major_opcode: 151, first_event: 95, first_error: 158 }
 XFree86-VidModeExtension: QueryExtensionReply { present: true, major_opcode: 152, first_event: 0, first_error: 172 }
 XFree86-DGA: QueryExtensionReply { present: true, major_opcode: 153, first_event: 112, first_error: 179 }
-DRI2: QueryExtensionReply { present: true, major_opcode: 154, first_event: 119, first_error: 0 }
+GLX: QueryExtensionReply { present: true, major_opcode: 151, first_event: 95, first_error: 158 }
 NV-GLX: QueryExtensionReply { present: true, major_opcode: 155, first_event: 0, first_error: 0 }
 NV-CONTROL: QueryExtensionReply { present: true, major_opcode: 156, first_event: 121, first_error: 0 }
 */

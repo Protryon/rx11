@@ -12,7 +12,7 @@ pub struct Colormap<'a> {
 }
 
 impl<'a> Window<'a> {
-    pub async fn create_colormap(&self, visual: Visual, alloc: CreateColormapAlloc) -> Result<Colormap<'_>> {
+    pub async fn create_colormap(self, visual: Visual, alloc: CreateColormapAlloc) -> Result<Colormap<'a>> {
         let colormap = self.connection.new_resource_id();
         
         send_request!(self.connection, alloc as u8, CreateColormap {
@@ -27,7 +27,7 @@ impl<'a> Window<'a> {
     }
 
 
-    pub async fn list_installed_colormaps(&self) -> Result<Vec<Colormap<'_>>> {
+    pub async fn list_installed_colormaps(self) -> Result<Vec<Colormap<'a>>> {
         let seq = send_request!(self.connection, ListInstalledColormaps {
             window: self.handle,
         });
@@ -42,14 +42,14 @@ impl<'a> Window<'a> {
 
 impl<'a> Colormap<'a> {
 
-    pub async fn free(&self) -> Result<()> {
+    pub async fn free(self) -> Result<()> {
         send_request!(self.connection, FreeColormap {
             colormap: self.handle,
         });
         Ok(())
     }
 
-    pub async fn copy_and_free(&self) -> Result<Colormap<'_>> {
+    pub async fn copy_and_free(self) -> Result<Colormap<'a>> {
         let colormap = self.connection.new_resource_id();
         send_request!(self.connection, CopyColormapAndFree {
             src_colormap: self.handle,
@@ -61,14 +61,14 @@ impl<'a> Colormap<'a> {
         })
     }
 
-    pub async fn install(&self) -> Result<()> {
+    pub async fn install(self) -> Result<()> {
         send_request!(self.connection, InstallColormap {
             colormap: self.handle,
         });
         Ok(())
     }
 
-    pub async fn uninstall(&self) -> Result<()> {
+    pub async fn uninstall(self) -> Result<()> {
         send_request!(self.connection, UninstallColormap {
             colormap: self.handle,
         });

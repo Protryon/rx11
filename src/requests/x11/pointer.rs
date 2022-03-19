@@ -40,7 +40,7 @@ pub enum InputFocusWindow<'a> {
 }
 
 impl<'a> Window<'a> {
-    pub async fn legacy_query_pointer(&self) -> Result<QueryPointerResponse<'_>> {
+    pub async fn legacy_query_pointer(self) -> Result<QueryPointerResponse<'a>> {
         let seq = send_request!(self.connection, QueryPointer {
             window: self.handle,
         });
@@ -61,7 +61,7 @@ impl<'a> Window<'a> {
         })
     }
 
-    pub async fn legacy_get_motion_events(&self, start: Timestamp, stop: Timestamp) -> Result<Vec<MotionEvent>> {
+    pub async fn legacy_get_motion_events(self, start: Timestamp, stop: Timestamp) -> Result<Vec<MotionEvent>> {
         let seq = send_request!(self.connection, GetMotionEvents {
             window: self.handle,
             start_time: start.0,
@@ -123,7 +123,7 @@ impl X11Connection {
         })
     }
 
-    pub async fn legacy_warp_pointer<'b>(&self, source: LegacyPointerSource<'b>, dest: LegacyPointerDestination<'b>) -> Result<()> {
+    pub async fn legacy_warp_pointer(&self, source: LegacyPointerSource<'_>, dest: LegacyPointerDestination<'_>) -> Result<()> {
         send_request!(self, WarpPointer {
             src_window: match source {
                 LegacyPointerSource::Anywhere => 0,

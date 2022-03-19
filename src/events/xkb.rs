@@ -11,7 +11,7 @@ pub use crate::coding::xkb::{
     ActionMessageEvent,
     AccessXNotifyEvent,
     ExtensionDeviceNotifyEvent,
-
+    
     BellClassResult
 };
 use crate::{requests::{Timestamp, Window, Atom}, coding::xkb::{self, XKBEventType, XKBEventData}, net::X11Connection};

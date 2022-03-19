@@ -190,7 +190,7 @@ impl X11Connection {
         }));
         self_.register_const_atoms();
 
-        self_.init_state().await?;
+        self_.init_state().await;
 
         Ok(self_)
     }

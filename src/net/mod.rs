@@ -70,14 +70,20 @@ pub struct HandshakeInfo<'a> {
     pub pixmap_formats: &'a [PixmapFormat],
 }
 
-impl X11Connection {
-    async fn init_state(&mut self) -> Result<()> {
-        self.enable_xge().await?;
-        self.enable_xkb().await?;
-        self.enable_xfixes().await?;
-        self.enable_xinput2().await?;
+fn ensure_log(name: &str, result: Result<()>) {
+    if let Err(e) = result {
+        error!("failed to load {} extension: {:?}", name, e);
+    }
+}
 
-        Ok(())
+impl X11Connection {
+    async fn init_state(&mut self) {
+        ensure_log("xge", self.enable_xge().await);
+        ensure_log("xkb", self.enable_xkb().await);
+        ensure_log("xfixes", self.enable_xfixes().await);
+        ensure_log("xinput2", self.enable_xinput2().await);
+        ensure_log("xrandr", self.enable_xrandr().await);
+        ensure_log("shape", self.enable_shape().await);
     }
 
     pub(crate) fn new_resource_id(&self) -> u32 {

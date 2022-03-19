@@ -6,7 +6,7 @@ pub use crate::coding::xfixes::{
 use super::*;
 
 impl<'a> Window<'a> {
-    pub async fn select_selection_input(&self, selection: Atom, event_mask: SelectionEventMask) -> Result<()> {
+    pub async fn select_selection_input(self, selection: Atom, event_mask: SelectionEventMask) -> Result<()> {
         send_request_xfixes!(self.connection, XFOpcode::SelectSelectionInput, true, SelectSelectionInputRequest {
             window: self.handle,
             selection_atom: selection.handle,

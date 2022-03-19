@@ -163,7 +163,7 @@ impl<'a> Device<'a> {
         Ok(out)
     }
 
-    pub async fn set_focus(self, window: Option<Window<'a>>, time: Timestamp) -> Result<()> {
+    pub async fn set_focus(self, window: Option<Window<'_>>, time: Timestamp) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XISetFocus, true, XISetFocusRequest {
             device: self.id,
             window: window.map(|x| x.handle).unwrap_or(0),
@@ -326,7 +326,7 @@ impl<'a> Device<'a> {
         Ok(())
     }
 
-    pub async fn set_as_client_pointer(&self) -> Result<()> {
+    pub async fn set_as_client_pointer(self) -> Result<()> {
         send_request_xinput!(self.connection, XIOpcode::XISetClientPointer, true, XISetClientPointerRequest {
             device: self.id,
             window: 0,

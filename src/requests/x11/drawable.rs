@@ -31,7 +31,7 @@ impl<'a> From<Pixmap<'a>> for Drawable<'a> {
 }
 
 impl<'a> Drawable<'a> {
-    pub(crate) fn handle(&self) -> u32 {
+    pub(crate) fn handle(self) -> u32 {
         match self {
             Drawable::Window(x) => x.handle,
             Drawable::Pixmap(x) => x.handle,

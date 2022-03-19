@@ -1,0 +1,223 @@
+import_ffi utf8 as type;
+import_ffi pad as function;
+
+type Attachment = enum u32 {
+    BufferFrontLeft = 0,
+    BufferBackLeft,
+    BufferFrontRight,
+    BufferBackRight,
+    BufferDepth,
+    BufferStencil,
+    BufferAccum,
+    BufferFakeFrontLeft,
+    BufferFakeFrontRight,
+    BufferDepthStencil,
+    BufferHiz,
+};
+
+type DriverType = enum u32 {
+    DRI = 0,
+    VDPAU,
+};
+
+type BufferSwapEventType = enum u16 {
+    ExchangeComplete = 1,
+    BlitComplete,
+    FlipComplete,
+};
+
+type DRI2Buffer = container {
+    attachment: Attachment,
+    name: u32, // todo: is this an atom?
+    pitch: u32,
+    cpp: u32,
+    flags: u32,
+};
+
+type AttachFormat = container {
+    attachment: Attachment,
+    format: u32,
+};
+
+type QueryVersionRequest = container {
+    major_version: u32,
+    minor_version: u32,
+};
+
+type QueryVersionResponse = container {
+    major_version: u32,
+    minor_version: u32,
+};
+
+type ConnectRequest = container {
+    window: u32,
+    driver_type: DriverType,
+};
+
+type ConnectResponse = container {
+    driver_name_length: u32 = len(driver_name) :> u32,
+    device_name_length: u32 = len(device_name) :> u32,
+    .pad: 16,
+    driver_name: utf8(driver_name_length),
+    .pad: pad(4, driver_name_length),
+    device_name: utf8(device_name_length),
+};
+
+type AuthenticateRequest = container {
+    window: u32,
+    magic: u32,
+};
+
+type AuthenticateResponse = container {
+    authenticated: u32,
+};
+
+type CreateDrawableRequest = container {
+    drawable: u32,
+};
+
+type DestroyDrawableRequest = container {
+    drawable: u32,
+};
+
+type GetBuffersRequest = container {
+    drawable: u32,
+    count: u32 = len(attachments) :> u32,
+    attachments: Attachment[count],
+};
+
+type GetBuffersResponse = container {
+    width: u32,
+    height: u32,
+    count: u32 = len(buffers) :> u32,
+    .pad: 12,
+    buffers: DRI2Buffer[count],
+};
+
+type CopyRegionRequest = container {
+    drawable: u32,
+    region: u32,
+    dest: u32,
+    src: u32,
+};
+
+type CopyRegionResponse = container {
+};
+
+type GetBuffersWithFormatRequest = container {
+    drawable: u32,
+    count: u32 = len(attachments) :> u32,
+    attachments: AttachFormat[count],
+};
+
+type GetBuffersWithFormatResponse = container {
+    width: u32,
+    height: u32,
+    count: u32 = len(buffers) :> u32,
+    .pad: 12,
+    buffers: DRI2Buffer[count],
+};
+
+type SwapBuffersRequest = container {
+    drawable: u32,
+    target_msc: u64,
+    divisor: u64,
+    remainder: u64,
+};
+
+type SwapBuffersResponse = container {
+    swap: u64,
+};
+
+type GetMSCRequest = container {
+    drawable: u32,
+};
+
+type GetMSCResponse = container {
+    ust: u64,
+    msc: u64,
+    sbc: u64,
+};
+
+type WaitMSCRequest = container {
+    drawable: u32,
+    target_msc: u64,
+    divisor: u64,
+    remainder: u64,
+};
+
+type WaitMSCResponse = container {
+    ust: u64,
+    msc: u64,
+    sbc: u64,
+};
+
+type WaitSBCRequest = container {
+    drawable: u32,
+    target_sbc: u64,
+};
+
+type WaitSBCResponse = container {
+    ust: u64,
+    msc: u64,
+    sbc: u64,
+};
+
+type SwapIntervalRequest = container {
+    drawable: u32,
+    interval: u32,
+};
+
+type GetParamRequest = container {
+    drawable: u32,
+    param: u32, // todo: is this atom?
+};
+
+// reserved => is_param_recognized: bool,
+type GetParamResponse = container {
+    value: u64,
+};
+
+type BufferSwapCompleteEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    event_type: BufferSwapEventType,
+    .pad: 2,
+    drawable: u32,
+    ust: u64,
+    msc: u64,
+    sbc: u32,
+};
+
+type InvalidateBuffersEvent = container {
+    .pad: 1,
+    sequence_number: u16,
+    drawable: u32,
+};
+
+type DRI2Opcode = enum u8 {
+    QueryVersion = 0,
+    Connect,
+    Authenticate,
+    CreateDrawable,
+    DestroyDrawable,
+    GetBuffers,
+    CopyRegion,
+    GetBuffersWithFormat,
+    SwapBuffers,
+    GetMSC,
+    WaitMSC,
+    WaitSBC,
+    SwapInterval,
+    GetParam,
+};
+
+type DRI2EventCode = enum u8 {
+    BufferSwapComplete = 0,
+    InvalidateBuffers,
+};
+
+type DRI2EventData(code: DRI2EventCode) = container +tagged_enum {
+    BufferSwapComplete: BufferSwapCompleteEvent { code == DRI2EventCode::BufferSwapComplete },
+    InvalidateBuffers: InvalidateBuffersEvent { code == DRI2EventCode::InvalidateBuffers },
+};

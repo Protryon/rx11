@@ -10,7 +10,7 @@ impl X11Connection {
         Ok(())
     }
 
-    pub async fn kill_client<'a>(&'a self, resource: impl Resource<'a> + 'a) -> Result<()> {
+    pub async fn kill_client(&self, resource: impl Resource<'_>) -> Result<()> {
         send_request!(self, KillClient {
             resource: resource.x11_handle(),
         });
