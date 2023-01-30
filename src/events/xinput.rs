@@ -1,20 +1,15 @@
-
-use crate::{coding::xinput2::{XIEventData, ModifierInfo, GroupInfo, self, XIEventCode, DeviceId}, net::X11Connection, requests::{Device, Timestamp, DeviceClass, Window, DeviceType, Atom, TouchId, Barrier, BarrierEventId}};
+pub use crate::coding::xinput2::{
+    BarrierFlags, ChangeReason, HierarchyMask, KeyEventFlags, PointerEventFlags, PropertyFlag, TouchEventFlags, TouchOwnershipFlags, XINotifyDetail,
+    XINotifyMode,
+};
+use crate::{
+    coding::xinput2::{self, DeviceId, GroupInfo, ModifierInfo, XIEventCode, XIEventData},
+    net::X11Connection,
+    requests::{Atom, Barrier, BarrierEventId, Device, DeviceClass, DeviceType, Timestamp, TouchId, Window},
+};
 use anyhow::Result;
 use bitvec::{order::Lsb0, prelude::BitVec};
 use fixed::types::{I16F16, I32F32};
-pub use crate::coding::xinput2::{
-    ChangeReason,
-    KeyEventFlags,
-    PointerEventFlags,
-    XINotifyMode,
-    XINotifyDetail,
-    HierarchyMask,
-    PropertyFlag,
-    TouchEventFlags,
-    TouchOwnershipFlags,
-    BarrierFlags,
-};
 
 #[derive(Clone, Debug)]
 pub enum XIEvent<'a> {
@@ -189,7 +184,10 @@ impl<'a> KeyEvent<'a> {
             },
             child_window: match event.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection })
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: event.root_x.into(),
             root_y: event.root_y.into(),
@@ -273,7 +271,10 @@ impl<'a> ButtonEvent<'a> {
             },
             child_window: match event.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection })
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: event.root_x.into(),
             root_y: event.root_y.into(),
@@ -362,7 +363,10 @@ impl<'a> TransitionEvent<'a> {
             },
             child_window: match event.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection })
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: event.root_x.into(),
             root_y: event.root_y.into(),
@@ -425,20 +429,25 @@ impl<'a> HierarchyEvent<'a> {
             },
             time: Timestamp(event.time),
             flags: event.flags,
-            infos: event.infos.into_iter().map(|info| {
-                HierarchyInfo {
+            infos: event
+                .infos
+                .into_iter()
+                .map(|info| HierarchyInfo {
                     device: Device {
                         id: info.device,
                         connection,
                     },
-                    device_type: DeviceType::from_attachment(info.type_, Device {
-                        id: info.attachment_device,
-                        connection,
-                    }),
+                    device_type: DeviceType::from_attachment(
+                        info.type_,
+                        Device {
+                            id: info.attachment_device,
+                            connection,
+                        },
+                    ),
                     enabled: info.enabled,
                     flags: info.flags,
-                }
-            }).collect(),
+                })
+                .collect(),
         }
     }
 
@@ -448,27 +457,45 @@ impl<'a> HierarchyEvent<'a> {
             time: self.time.0,
             flags: self.flags,
             num_infos: 0,
-            infos: self.infos.into_iter().map(|info| {
-                xinput2::HierarchyInfo {
+            infos: self
+                .infos
+                .into_iter()
+                .map(|info| xinput2::HierarchyInfo {
                     device: info.device.id,
                     attachment_device: match &info.device_type {
                         DeviceType::FloatingSlave => DeviceId::All,
-                        DeviceType::SlavePointer { master } => master.id,
-                        DeviceType::SlaveKeyboard { master } => master.id,
-                        DeviceType::MasterPointer { paired_keyboard } => paired_keyboard.id,
-                        DeviceType::MasterKeyboard { paired_pointer } => paired_pointer.id,
+                        DeviceType::SlavePointer {
+                            master,
+                        } => master.id,
+                        DeviceType::SlaveKeyboard {
+                            master,
+                        } => master.id,
+                        DeviceType::MasterPointer {
+                            paired_keyboard,
+                        } => paired_keyboard.id,
+                        DeviceType::MasterKeyboard {
+                            paired_pointer,
+                        } => paired_pointer.id,
                     },
                     type_: match &info.device_type {
                         DeviceType::FloatingSlave => xinput2::DeviceType::FloatingSlave,
-                        DeviceType::SlavePointer { .. } => xinput2::DeviceType::SlavePointer,
-                        DeviceType::SlaveKeyboard { .. } => xinput2::DeviceType::SlaveKeyboard,
-                        DeviceType::MasterPointer { .. } => xinput2::DeviceType::MasterPointer,
-                        DeviceType::MasterKeyboard { .. } => xinput2::DeviceType::MasterKeyboard,
+                        DeviceType::SlavePointer {
+                            ..
+                        } => xinput2::DeviceType::SlavePointer,
+                        DeviceType::SlaveKeyboard {
+                            ..
+                        } => xinput2::DeviceType::SlaveKeyboard,
+                        DeviceType::MasterPointer {
+                            ..
+                        } => xinput2::DeviceType::MasterPointer,
+                        DeviceType::MasterKeyboard {
+                            ..
+                        } => xinput2::DeviceType::MasterKeyboard,
                     },
                     enabled: info.enabled,
                     flags: info.flags,
-                }
-            }).collect(),
+                })
+                .collect(),
         }
     }
 }
@@ -640,7 +667,10 @@ impl<'a> TouchEvent<'a> {
             },
             child_window: match event.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection })
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: event.root_x.into(),
             root_y: event.root_y.into(),
@@ -715,7 +745,10 @@ impl<'a> TouchOwnershipEvent<'a> {
             },
             child_window: match event.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection })
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             source_device: Device {
                 id: event.source_device,

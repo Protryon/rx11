@@ -5,7 +5,7 @@
 // TODO: pending `render` integration
 // impl<'a> Picture<'a> {
 //     pub async fn set_clip_region(&self, region: Region<'_>, x_origin: i16, y_origin: i16) -> Result<()> {
-//         send_request_xfixes!(self.connection, XFOpcode::SetPictureClipRegion, true, SetPictureClipRegionRequest {
+//         send_request_xfixes!(self.connection, XFOpcode::SetPictureClipRegion, SetPictureClipRegionRequest {
 //             picture: self.handle,
 //             region: region.handle,
 //             x_origin: x_origin,

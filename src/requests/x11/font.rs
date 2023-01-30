@@ -1,13 +1,10 @@
+use futures::StreamExt;
+
 use super::*;
 
-pub use crate::coding::{
-    CharInfo,
-    DrawDirection,
-    QueryTextExtentsReply,
-};
+pub use crate::coding::{CharInfo, DrawDirection, QueryTextExtentsReply};
 
-#[derive(Clone, Copy)]
-#[derive(derivative::Derivative)]
+#[derive(Clone, Copy, derivative::Derivative)]
 #[derivative(Debug)]
 pub struct Font<'a> {
     pub(crate) handle: u32,
@@ -79,41 +76,112 @@ pub struct FontQueryInfo {
 impl X11Connection {
     pub async fn open_font(&self, name: impl AsRef<str>) -> Result<Font<'_>> {
         let font = self.new_resource_id();
-        
-        send_request!(self, OpenFont {
-            font: font,
-            name: name.as_ref().to_string(),
-        });
+
+        send_request!(
+            self,
+            OpenFont {
+                font: font,
+                name: name.as_ref().to_string(),
+            }
+        );
         Ok(Font {
             handle: font,
             connection: self,
         })
     }
 
-    pub async fn set_font_path(&self, paths: impl IntoIterator<Item=impl AsRef<str>>) -> Result<()> {
-        send_request!(self, SetFontPath {
-            paths: paths.into_iter().map(|str| Str {
-                str: str.as_ref().to_string(),
-                ..Default::default()
-            }).collect(),
-        });
+    pub async fn set_font_path(&self, paths: impl IntoIterator<Item = impl AsRef<str>>) -> Result<()> {
+        send_request!(
+            self,
+            SetFontPath {
+                paths: paths
+                    .into_iter()
+                    .map(|str| Str {
+                        str: str.as_ref().to_string(),
+                        ..Default::default()
+                    })
+                    .collect(),
+            }
+        );
         Ok(())
     }
 
     pub async fn get_font_path(&self) -> Result<Vec<String>> {
-        let seq = send_request!(self, GetFontPath {
-        });
-        let reply = receive_reply!(self, seq, GetFontPathReply);
+        let reply = send_request!(self, GetFontPathReply, GetFontPath {});
 
-        Ok(reply.paths.into_iter().map(|x| x.str).collect())
+        Ok(reply.into_inner().paths.into_iter().map(|x| x.str).collect())
+    }
+
+    pub async fn list_fonts(&self, max_count: u16, pattern: &str) -> Result<Vec<String>> {
+        let reply = send_request!(
+            self,
+            ListFontsReply,
+            ListFonts {
+                max_names: max_count,
+                pattern: pattern.to_string(),
+            }
+        );
+
+        Ok(reply.into_inner().names.into_iter().map(|x| x.str).collect())
+    }
+
+    pub async fn list_fonts_with_info(&self, max_count: u16, pattern: &str) -> Result<Vec<(String, FontQueryInfo)>> {
+        let mut reply = send_request!(
+            self,
+            stream,
+            ListFontsWithInfoReply,
+            ListFontsWithInfo {
+                max_names: max_count,
+                pattern: pattern.to_string(),
+            }
+        );
+
+        let mut raw_out = vec![];
+        while let Some(item) = reply.next().await.transpose()? {
+            if item.reserved == 0 {
+                drop(reply);
+                break;
+            }
+            raw_out.push(item.into_inner());
+        }
+        let mut out = Vec::with_capacity(raw_out.len());
+        for item in raw_out {
+            let mut properties = vec![];
+            for property in item.fontprops {
+                properties.push((self.get_atom_name(property.name_atom).await?, property.value));
+            }
+            out.push((
+                item.name,
+                FontQueryInfo {
+                    min_bounds: item.min_bounds,
+                    max_bounds: item.max_bounds,
+                    min_char_or_byte2: item.min_char_or_byte2,
+                    max_char_or_byte2: item.max_char_or_byte2,
+                    default_char: item.default_char,
+                    draw_direction: item.draw_direction,
+                    min_byte1: item.min_byte1,
+                    max_byte1: item.max_byte1,
+                    all_chars_exist: item.all_chars_exist,
+                    font_ascent: item.font_ascent,
+                    font_descent: item.font_descent,
+                    properties,
+                    charinfos: vec![],
+                },
+            ));
+        }
+
+        Ok(out)
     }
 }
 
 impl<'a> Font<'a> {
     pub async fn close(self) -> Result<()> {
-        send_request!(self.connection, CloseFont {
-            font: self.handle,
-        });
+        send_request!(
+            self.connection,
+            CloseFont {
+                font: self.handle,
+            }
+        );
         Ok(())
     }
 
@@ -127,20 +195,19 @@ impl<'a> Font<'a> {
 }
 
 impl<'a> Fontable<'a> {
-    //todo: get_fonts_with_info
-
     pub async fn query_font(self) -> Result<FontQueryInfo> {
-        let seq = send_request!(self.connection(), QueryFont {
-            fontable: self.handle(),
-        });
-        let reply = receive_reply!(self.connection(), seq, QueryFontReply);
+        let reply = send_request!(
+            self.connection(),
+            QueryFontReply,
+            QueryFont {
+                fontable: self.handle(),
+            }
+        )
+        .into_inner();
 
         let mut properties = vec![];
         for property in reply.fontprops {
-            properties.push((
-                self.connection().get_atom_name(property.name_atom).await?,
-                property.value,
-            ))
+            properties.push((self.connection().get_atom_name(property.name_atom).await?, property.value));
         }
 
         Ok(FontQueryInfo {
@@ -155,21 +222,20 @@ impl<'a> Fontable<'a> {
             all_chars_exist: reply.all_chars_exist,
             font_ascent: reply.font_ascent,
             font_descent: reply.font_descent,
-            properties: properties,
+            properties,
             charinfos: reply.charinfos,
         })
     }
-    
+
     pub async fn query_text_extents(self, string: impl AsRef<str>) -> Result<QueryTextExtentsReply> {
         let string = string.as_ref().to_string();
         let is_odd_length = (string.len() * 2) % 4 == 2;
-        let seq = send_request!(self.connection(), is_odd_length as u8, QueryTextExtents {
+        let reply = send_request!(self.connection(), reserved is_odd_length as u8, QueryTextExtentsReply, QueryTextExtents {
             fontable: self.handle(),
             string: string,
         });
-        let reply = receive_reply!(self.connection(), seq, QueryTextExtentsReply);
 
-        Ok(reply)
+        Ok(reply.into_inner())
     }
 }
 
@@ -179,6 +245,9 @@ impl<'a> Resource<'a> for Font<'a> {
     }
 
     fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self {
-        Self { connection, handle }
+        Self {
+            connection,
+            handle,
+        }
     }
 }

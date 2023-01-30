@@ -1,8 +1,14 @@
-use crate::{coding::{Response, ResponseBody, ClientHandshake, ServerHandshake, ServerHandshakeBody}, connection::{UnixConnection, TcpConnection}};
+use crate::{
+    coding::{ClientHandshake, Response, ResponseBody, ServerHandshake, ServerHandshakeBody},
+    connection::{TcpConnection, UnixConnection},
+};
 
 use super::*;
 use dashmap::mapref::entry::Entry;
-use tokio::{io::{AsyncRead, AsyncWrite, BufReader, BufWriter, AsyncWriteExt}, sync::{mpsc, Mutex, broadcast}};
+use tokio::{
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, BufWriter},
+    sync::{broadcast, mpsc, Mutex},
+};
 
 impl X11Connection {
     async fn writer_thread(mut writer: BufWriter<impl AsyncWrite + Unpin + Send + Sync>, mut in_receiver: mpsc::Receiver<RequestLen>) -> Result<()> {
@@ -13,7 +19,11 @@ impl X11Connection {
         Ok(())
     }
 
-    async fn reader_thread(mut reader: BufReader<impl AsyncRead + Unpin + Send + Sync>, output: Arc<X11OutputContext>, events: broadcast::Sender<(u8, crate::coding::Event)>) -> Result<()> {
+    async fn reader_thread(
+        mut reader: BufReader<impl AsyncRead + Unpin + Send + Sync>,
+        output: Arc<X11OutputContext>,
+        events: broadcast::Sender<(u8, crate::coding::Event)>,
+    ) -> Result<()> {
         loop {
             let response = Response::decode_async(&mut reader).await?;
             match response.body {
@@ -21,88 +31,88 @@ impl X11Connection {
                     if let Err(_) = events.send((response.code, event)) {
                         warn!("failed to send x11 event (no listeners)");
                     }
-                },
+                }
                 ResponseBody::ErrorReply(error) => {
                     let entry = output.responses.entry(error.sequence_number);
                     let pending_error = match entry {
-                        Entry::Vacant(vacant) => {
-                            vacant.insert(ResponseValue::Present(Response {
-                                code: response.code,
-                                body: ResponseBody::ErrorReply(error),
-                            }));
-                            None
-                        },
-                        Entry::Occupied(mut occupied) => {
-                            match &mut *occupied.get_mut() {
-                                ResponseValue::InboundVoidError => {
-                                    debug!("inbound x11 error: {:?} <{}>", error.code, error.bad_value);
-                                    Some(error)
-                                },
-                                ResponseValue::Present(old_response) => {
-                                    warn!("overriding response value (are we sending/receiving too fast?): {:?}", old_response);
-                                    *old_response = Response {
+                        Entry::Vacant(_) => {
+                            warn!("received unexpected error for seq {}: {:?}", error.sequence_number, error);
+                            Some(error)
+                        }
+                        Entry::Occupied(mut occupied) => match &mut *occupied.get_mut() {
+                            ResponseValue::InboundVoidError => {
+                                debug!("inbound x11 error: {:?} <{}>", error.code, error.bad_value);
+                                Some(error)
+                            }
+                            ResponseValue::Single(_) => {
+                                let sender = occupied.remove();
+                                match sender {
+                                    ResponseValue::Single(sender) => {
+                                        let _ = sender.send(Response {
+                                            code: response.code,
+                                            body: ResponseBody::ErrorReply(error),
+                                        });
+                                    }
+                                    _ => unimplemented!(),
+                                }
+                                None
+                            }
+                            ResponseValue::Stream(sender) => {
+                                if sender
+                                    .send(Response {
                                         code: response.code,
                                         body: ResponseBody::ErrorReply(error),
-                                    };
-                                    None
-                                },
-                                ResponseValue::Waiting(_) => {
-                                    let sender = occupied.remove();
-                                    match sender {
-                                        ResponseValue::Waiting(sender) => {
-                                            let _ = sender.send(Response {
-                                                code: response.code,
-                                                body: ResponseBody::ErrorReply(error),
-                                            });
-                                        },
-                                        _ => unimplemented!(),
-                                    }
-                                    None
-                                },
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    occupied.remove();
+                                }
+                                None
                             }
                         },
                     };
                     if let Some(pending_error) = pending_error {
                         output.pending_errors.lock().await.push(pending_error);
                     }
-                },
+                }
                 ResponseBody::Reply(reply) => {
                     let entry = output.responses.entry(reply.sequence_number);
                     match entry {
-                        Entry::Vacant(vacant) => {
-                            vacant.insert(ResponseValue::Present(Response {
-                                code: response.code,
-                                body: ResponseBody::Reply(reply),
-                            }));
-                        },
-                        Entry::Occupied(mut occupied) => {
-                            match &mut *occupied.get_mut() {
-                                ResponseValue::InboundVoidError => {
-                                    warn!("received unexpected reply to void request: {:?}", reply);
-                                },
-                                ResponseValue::Present(old_response) => {
-                                    warn!("overriding response value (are we sending/receiving too fast?): {:?}", old_response);
-                                    *old_response = Response {
+                        Entry::Vacant(_) => {
+                            warn!("received unexpected reply for seq {}: {:?}", reply.sequence_number, reply);
+                        }
+                        Entry::Occupied(mut occupied) => match &mut *occupied.get_mut() {
+                            ResponseValue::InboundVoidError => {
+                                warn!("received unexpected reply to void request: {:?}", reply);
+                            }
+                            ResponseValue::Single(_) => {
+                                let sender = occupied.remove();
+                                match sender {
+                                    ResponseValue::Single(sender) => {
+                                        let _ = sender.send(Response {
+                                            code: response.code,
+                                            body: ResponseBody::Reply(reply),
+                                        });
+                                    }
+                                    _ => unimplemented!(),
+                                }
+                            }
+                            ResponseValue::Stream(sender) => {
+                                if sender
+                                    .send(Response {
                                         code: response.code,
                                         body: ResponseBody::Reply(reply),
-                                    };
-                                },
-                                ResponseValue::Waiting(_) => {
-                                    let sender = occupied.remove();
-                                    match sender {
-                                        ResponseValue::Waiting(sender) => {
-                                            let _ = sender.send(Response {
-                                                code: response.code,
-                                                body: ResponseBody::Reply(reply),
-                                            });
-                                        },
-                                        _ => unimplemented!(),
-                                    }
-                                },
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    occupied.remove();
+                                }
                             }
                         },
                     }
-                },
+                }
             }
         }
     }
@@ -120,10 +130,7 @@ impl X11Connection {
         Self::open(reader, writer).await
     }
 
-    pub async fn open(
-        writer: impl AsyncWrite + Unpin + Send + Sync + 'static,
-        reader: impl AsyncRead + Unpin + Send + Sync + 'static,
-    ) -> Result<Self> {
+    pub async fn open(writer: impl AsyncWrite + Unpin + Send + Sync + 'static, reader: impl AsyncRead + Unpin + Send + Sync + 'static) -> Result<Self> {
         let mut writer = BufWriter::new(writer);
         let mut reader = BufReader::new(reader);
         let handshake = ClientHandshake {
@@ -146,13 +153,11 @@ impl X11Connection {
         let handshake = match handshake.body {
             ServerHandshakeBody::Failed(f) => {
                 bail!("failed to connect to server: {}", f.reason);
-            },
+            }
             ServerHandshakeBody::AuthRequired(f) => {
                 bail!("failed to connect to server, auth required: {}", f.reason);
-            },
-            ServerHandshakeBody::Success(packet) => {
-                packet
-            },
+            }
+            ServerHandshakeBody::Success(packet) => packet,
         };
 
         let output = Arc::new(X11OutputContext {
@@ -179,9 +184,11 @@ impl X11Connection {
 
         let mut self_ = Self(Arc::new(X11ConnectionInterior {
             output,
-            writer: in_sender,
+            write_data: Mutex::new(WriteData {
+                seq: 1,
+                writer: in_sender,
+            }),
             handshake,
-            seq: AtomicU16::new(1),
             next_resource_id: AtomicU32::new(0),
             known_atoms: DashMap::new(),
             known_atoms_inverse: DashMap::new(),
@@ -194,5 +201,4 @@ impl X11Connection {
 
         Ok(self_)
     }
-
 }

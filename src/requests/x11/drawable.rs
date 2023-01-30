@@ -52,13 +52,13 @@ pub struct Geometry<'a> {
 
 impl X11Connection {
     pub async fn get_geometry(&self, drawable: impl Into<Drawable<'_>>) -> Result<Geometry<'_>> {
-        let seq = send_request!(
+        let reply = send_request!(
             self,
+            GetGeometryReply,
             GetGeometry {
                 drawable: drawable.into().handle(),
             }
         );
-        let reply = receive_reply!(self, seq, GetGeometryReply);
 
         Ok(Geometry {
             root_window: Window {
@@ -73,23 +73,17 @@ impl X11Connection {
         })
     }
 
-    pub async fn query_best_size(
-        &self,
-        drawable: impl Into<Drawable<'_>>,
-        class: QueryBestSizeClass,
-        width: u16,
-        height: u16,
-    ) -> Result<(u16, u16)> {
-        let seq = send_request!(
+    pub async fn query_best_size(&self, drawable: impl Into<Drawable<'_>>, class: QueryBestSizeClass, width: u16, height: u16) -> Result<(u16, u16)> {
+        let reply = send_request!(
             self,
-            class as u8,
+            reserved class as u8,
+            QueryBestSizeReply,
             QueryBestSize {
                 drawable: drawable.into().handle(),
                 width: width,
                 height: height,
             }
         );
-        let reply = receive_reply!(self, seq, QueryBestSizeReply);
 
         Ok((reply.width, reply.height))
     }

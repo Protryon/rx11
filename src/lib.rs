@@ -9,7 +9,8 @@ pub mod net;
 
 pub mod connection;
 
-mod coding;
+//TODO: once record is properly abstracted, make this private again
+pub mod coding;
 
 pub mod requests;
 

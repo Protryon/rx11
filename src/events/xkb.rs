@@ -1,20 +1,12 @@
-
 pub use crate::coding::xkb::{
-    NewKeyboardNotifyEvent,
-    MapNotifyEvent,
-    StateNotifyEvent,
-    ControlsNotifyEvent,
-    IndicatorStateNotifyEvent,
-    IndicatorMapNotifyEvent,
-    NamesNotifyEvent,
-    CompatMapNotifyEvent,
-    ActionMessageEvent,
-    AccessXNotifyEvent,
-    ExtensionDeviceNotifyEvent,
-    
-    BellClassResult
+    AccessXNotifyEvent, ActionMessageEvent, BellClassResult, CompatMapNotifyEvent, ControlsNotifyEvent, ExtensionDeviceNotifyEvent, IndicatorMapNotifyEvent,
+    IndicatorStateNotifyEvent, MapNotifyEvent, NamesNotifyEvent, NewKeyboardNotifyEvent, StateNotifyEvent,
 };
-use crate::{requests::{Timestamp, Window, Atom}, coding::xkb::{self, XKBEventType, XKBEventData}, net::X11Connection};
+use crate::{
+    coding::xkb::{self, XKBEventData, XKBEventType},
+    net::X11Connection,
+    requests::{Atom, Timestamp, Window},
+};
 use anyhow::Result;
 
 #[derive(Clone, Debug)]
@@ -92,19 +84,22 @@ impl<'a> XKBEvent<'a> {
             XKBEvent::IndicatorMapNotify(e) => (XKBEventType::IndicatorMapNotify, XKBEventData::IndicatorMapNotify(e)),
             XKBEvent::NamesNotify(e) => (XKBEventType::NamesNotify, XKBEventData::NamesNotify(e)),
             XKBEvent::CompatMapNotify(e) => (XKBEventType::CompatMapNotify, XKBEventData::CompatMapNotify(e)),
-            XKBEvent::BellNotify(e) => (XKBEventType::BellNotify, XKBEventData::BellNotify(xkb::BellNotifyEvent {
-                sequence_number: e.sequence_number,
-                time: e.time.0,
-                device_id: e.device_id,
-                bell_class: e.bell_class,
-                bell_id: e.bell_id,
-                percent: e.percent,
-                pitch: e.pitch,
-                duration: e.duration,
-                name_atom: e.name.handle,
-                window: e.window.handle,
-                event_only: e.event_only,
-            })),
+            XKBEvent::BellNotify(e) => (
+                XKBEventType::BellNotify,
+                XKBEventData::BellNotify(xkb::BellNotifyEvent {
+                    sequence_number: e.sequence_number,
+                    time: e.time.0,
+                    device_id: e.device_id,
+                    bell_class: e.bell_class,
+                    bell_id: e.bell_id,
+                    percent: e.percent,
+                    pitch: e.pitch,
+                    duration: e.duration,
+                    name_atom: e.name.handle,
+                    window: e.window.handle,
+                    event_only: e.event_only,
+                }),
+            ),
             XKBEvent::ActionMessage(e) => (XKBEventType::ActionMessage, XKBEventData::ActionMessage(e)),
             XKBEvent::AccessXNotify(e) => (XKBEventType::AccessXNotify, XKBEventData::AccessXNotify(e)),
             XKBEvent::ExtensionDeviceNotify(e) => (XKBEventType::ExtensionDeviceNotify, XKBEventData::ExtensionDeviceNotify(e)),

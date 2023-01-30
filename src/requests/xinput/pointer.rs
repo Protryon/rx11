@@ -1,11 +1,8 @@
-use bitvec::{prelude::BitVec, order::Lsb0};
+use bitvec::{order::Lsb0, prelude::BitVec};
 
-use crate::coding::xinput2::{XIQueryPointerRequest, XIQueryPointerResponse, XIWarpPointerRequest, Fp1616, XIChangeCursorRequest};
-pub use crate::coding::xinput2::{
-    ModifierInfo,
-    GroupInfo,
-};
 use super::*;
+use crate::coding::xinput2::{Fp1616, XIChangeCursorRequest, XIQueryPointerRequest, XIQueryPointerResponse, XIWarpPointerRequest};
+pub use crate::coding::xinput2::{GroupInfo, ModifierInfo};
 
 #[derive(Clone, Debug)]
 pub struct PointerData<'a> {
@@ -23,11 +20,16 @@ pub struct PointerData<'a> {
 
 impl<'a> Window<'a> {
     pub async fn query_pointer(self, device: Device<'_>) -> Result<PointerData<'a>> {
-        let seq = send_request_xinput!(self.connection, XIOpcode::XIQueryPointer, false, XIQueryPointerRequest {
-            device: device.id,
-            window: self.handle,
-        });
-        let reply = receive_reply!(self.connection, seq, XIQueryPointerResponse);
+        let reply = send_request_xinput!(
+            self.connection,
+            XIOpcode::XIQueryPointer,
+            XIQueryPointerResponse,
+            XIQueryPointerRequest {
+                device: device.id,
+                window: self.handle,
+            }
+        )
+        .into_inner();
 
         Ok(PointerData {
             root: Window {
@@ -53,14 +55,17 @@ impl<'a> Window<'a> {
     }
 
     pub async fn change_cursor(self, device: Device<'_>, cursor: Option<Cursor<'_>>) -> Result<()> {
-        send_request_xinput!(self.connection, XIOpcode::XIChangeCursor, true, XIChangeCursorRequest {
-            device: device.id,
-            window: self.handle,
-            cursor: cursor.map(|x| x.handle).unwrap_or(0),
-        });
+        send_request_xinput!(
+            self.connection,
+            XIOpcode::XIChangeCursor,
+            XIChangeCursorRequest {
+                device: device.id,
+                window: self.handle,
+                cursor: cursor.map(|x| x.handle).unwrap_or(0),
+            }
+        );
         Ok(())
     }
-
 }
 
 #[derive(Clone, Debug)]
@@ -77,15 +82,8 @@ pub enum PointerSource<'a> {
 
 #[derive(Clone, Debug)]
 pub enum PointerDestination<'a> {
-    Relative {
-        x: I16F16,
-        y: I16F16,
-    },
-    Absolute {
-        window: Window<'a>,
-        x: I16F16,
-        y: I16F16,
-    },
+    Relative { x: I16F16, y: I16F16 },
+    Absolute { window: Window<'a>, x: I16F16, y: I16F16 },
 }
 
 impl<'a> Device<'a> {
@@ -94,42 +92,83 @@ impl<'a> Device<'a> {
     }
 
     pub async fn warp_pointer(self, source: PointerSource<'_>, dest: PointerDestination<'_>) -> Result<()> {
-        send_request_xinput!(self.connection, XIOpcode::XIWarpPointer, true, XIWarpPointerRequest {
-            device: self.id,
-            src_window: match source {
-                PointerSource::Anywhere => 0,
-                PointerSource::Window { window, .. } => window.handle,
-            },
-            src_x: match source {
-                PointerSource::Anywhere => Fp1616 { integral: 0, frac: 0 },
-                PointerSource::Window { src_x, .. } => src_x.into(),
-            },
-            src_y: match source {
-                PointerSource::Anywhere => Fp1616 { integral: 0, frac: 0 },
-                PointerSource::Window { src_y, .. } => src_y.into(),
-            },
-            src_width: match source {
-                PointerSource::Anywhere => 0,
-                PointerSource::Window { src_width, .. } => src_width,
-            },
-            src_height: match source {
-                PointerSource::Anywhere => 0,
-                PointerSource::Window { src_height, .. } => src_height,
-            },
-            dst_x: match dest {
-                PointerDestination::Relative { x, .. } => x.into(),
-                PointerDestination::Absolute { x, .. } => x.into(),
-            },
-            dst_y: match dest {
-                PointerDestination::Relative { y, .. } => y.into(),
-                PointerDestination::Absolute { y, .. } => y.into(),
-            },
-            dst_window: match dest {
-                PointerDestination::Relative { .. } => 0,
-                PointerDestination::Absolute { window, .. } => window.handle,
-            },
-        });
+        send_request_xinput!(
+            self.connection,
+            XIOpcode::XIWarpPointer,
+            XIWarpPointerRequest {
+                device: self.id,
+                src_window: match source {
+                    PointerSource::Anywhere => 0,
+                    PointerSource::Window {
+                        window,
+                        ..
+                    } => window.handle,
+                },
+                src_x: match source {
+                    PointerSource::Anywhere => Fp1616 {
+                        integral: 0,
+                        frac: 0
+                    },
+                    PointerSource::Window {
+                        src_x,
+                        ..
+                    } => src_x.into(),
+                },
+                src_y: match source {
+                    PointerSource::Anywhere => Fp1616 {
+                        integral: 0,
+                        frac: 0
+                    },
+                    PointerSource::Window {
+                        src_y,
+                        ..
+                    } => src_y.into(),
+                },
+                src_width: match source {
+                    PointerSource::Anywhere => 0,
+                    PointerSource::Window {
+                        src_width,
+                        ..
+                    } => src_width,
+                },
+                src_height: match source {
+                    PointerSource::Anywhere => 0,
+                    PointerSource::Window {
+                        src_height,
+                        ..
+                    } => src_height,
+                },
+                dst_x: match dest {
+                    PointerDestination::Relative {
+                        x,
+                        ..
+                    } => x.into(),
+                    PointerDestination::Absolute {
+                        x,
+                        ..
+                    } => x.into(),
+                },
+                dst_y: match dest {
+                    PointerDestination::Relative {
+                        y,
+                        ..
+                    } => y.into(),
+                    PointerDestination::Absolute {
+                        y,
+                        ..
+                    } => y.into(),
+                },
+                dst_window: match dest {
+                    PointerDestination::Relative {
+                        ..
+                    } => 0,
+                    PointerDestination::Absolute {
+                        window,
+                        ..
+                    } => window.handle,
+                },
+            }
+        );
         Ok(())
     }
-
 }

@@ -3,9 +3,8 @@ use std::time::Duration;
 use rx11::{
     net::X11Connection,
     requests::{
-        Atom, DeviceSpec, EventMask, GBNDetail, GContextParamsBuilder, MapPart, NameDetail,
-        Rectangle, SetOfGroup, StatePart, WindowAttributesBuilder, WindowParamsBuilder,
-        XIEventMask, XKBEventsBuilder,
+        Atom, DeviceSpec, EventMask, GBNDetail, GContextParamsBuilder, MapPart, NameDetail, Rectangle, SetOfGroup, StatePart, WindowAttributesBuilder,
+        WindowParamsBuilder, XIEventMask, XKBEventsBuilder,
     },
 };
 
@@ -14,9 +13,7 @@ async fn test_x11() {
     env_logger::Builder::new()
         .parse_env(env_logger::Env::default().default_filter_or("info"))
         .init();
-    let connected = X11Connection::connect("127.0.0.1", 1)
-        .await
-        .expect("failed to connect to x11");
+    let connected = X11Connection::connect("127.0.0.1", 1).await.expect("failed to connect to x11");
     // println!("{:?}", connected.handshake());
     let connected2 = connected.clone();
     tokio::spawn(async move {
@@ -69,80 +66,39 @@ async fn test_x11() {
         )
         .await
         .unwrap();
-    window
-        .set_property_string(Atom::WM_NAME, "test title")
-        .await
-        .unwrap();
+    window.set_property_string(Atom::WM_NAME, "test title").await.unwrap();
     let gcontext = connected
-        .create_gcontext(
-            window,
-            GContextParamsBuilder::default()
-                .foreground(0xff0000)
-                .build()
-                .unwrap(),
-        )
+        .create_gcontext(window, GContextParamsBuilder::default().foreground(0xff0000).build().unwrap())
         .await
         .unwrap();
 
     window.map().await.unwrap();
     connected.log_errors().await;
 
-    let compatmap = connected
-        .xkb_get_compat_map(DeviceSpec::UseCoreKeyboard, SetOfGroup::ALL, None)
-        .await
-        .unwrap();
+    let compatmap = connected.xkb_get_compat_map(DeviceSpec::UseCoreKeyboard, SetOfGroup::ALL, None).await.unwrap();
     println!("compatmap = {:?}", compatmap);
-    let indicator_map = connected
-        .xkb_get_indicator_map(DeviceSpec::UseCoreKeyboard, u32::MAX)
-        .await
-        .unwrap();
+    let indicator_map = connected.xkb_get_indicator_map(DeviceSpec::UseCoreKeyboard, u32::MAX).await.unwrap();
     println!("indicator_map = {:?}", indicator_map);
-    let keynames = connected
-        .xkb_get_names(DeviceSpec::UseCoreKeyboard, NameDetail::KEY_NAMES)
-        .await
-        .unwrap();
+    let keynames = connected.xkb_get_names(DeviceSpec::UseCoreKeyboard, NameDetail::KEY_NAMES).await.unwrap();
     println!("keynames = {:?}", keynames);
     let othernames = connected
-        .xkb_get_names(
-            DeviceSpec::UseCoreKeyboard,
-            NameDetail::ALL ^ NameDetail::KEY_NAMES,
-        )
+        .xkb_get_names(DeviceSpec::UseCoreKeyboard, NameDetail::ALL ^ NameDetail::KEY_NAMES)
         .await
         .unwrap();
     println!("othernames = {:?}", othernames);
-    let map = connected
-        .xkb_get_map(DeviceSpec::UseCoreKeyboard, MapPart::ALL)
-        .await
-        .unwrap();
+    let map = connected.xkb_get_map(DeviceSpec::UseCoreKeyboard, MapPart::ALL).await.unwrap();
     println!("map = {:?}", map);
     // let gname = connected.get_atom_name(0xf9).await.unwrap();
     // let geometry = connected.xkb_get_geometry(DeviceSpec::UseCoreKeyboard, gname).await.unwrap();
     // println!("geometry = {:?}", geometry);
     let kbd = connected
-        .xkb_get_keyboard_by_name(
-            DeviceSpec::UseCoreKeyboard,
-            GBNDetail::ALL,
-            GBNDetail::ALL,
-            false,
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-        )
+        .xkb_get_keyboard_by_name(DeviceSpec::UseCoreKeyboard, GBNDetail::ALL, GBNDetail::ALL, false, "", "", "", "", "", "")
         .await
         .unwrap();
     println!("keyboard = {:?}", kbd);
 
     connected
-        .xkb_select_events(
-            DeviceSpec::UseCoreKeyboard,
-            XKBEventsBuilder::default()
-                .state_notify(StatePart::ALL)
-                .build()
-                .unwrap(),
-        )
+        .xkb_select_events(DeviceSpec::UseCoreKeyboard, XKBEventsBuilder::default().state_notify(StatePart::ALL).build().unwrap())
         .await
         .unwrap();
 
@@ -159,20 +115,10 @@ async fn test_x11() {
         println!("monitor = {:?}", monitor);
     }
 
-    let current_pointer = window
-        .get_client_pointer()
-        .await
-        .unwrap()
-        .expect("no client pointer");
+    let current_pointer = window.get_client_pointer().await.unwrap().expect("no client pointer");
     // let mask = XIEventMask::DEVICE_CHANGED | XIEventMask::BUTTON_PRESS | XIEventMask::BUTTON_RELEASE | XIEventMask::MOTION | XIEventMask::ENTER | XIEventMask::LEAVE | XIEventMask::FOCUS_IN | XIEventMask::FOCUS_OUT;
-    let mask = XIEventMask::BUTTON_PRESS
-        | XIEventMask::BUTTON_RELEASE
-        | XIEventMask::MOTION
-        | XIEventMask::ENTER;
-    window
-        .xi_select_events([(current_pointer, mask)])
-        .await
-        .unwrap();
+    let mask = XIEventMask::BUTTON_PRESS | XIEventMask::BUTTON_RELEASE | XIEventMask::MOTION | XIEventMask::ENTER;
+    window.xi_select_events([(current_pointer, mask)]).await.unwrap();
 
     let mut counter = 0;
     loop {
@@ -191,10 +137,7 @@ async fn test_x11() {
             .await
             .unwrap();
 
-        window
-            .set_property_string(Atom::WM_NAME, format!("test title {}", counter))
-            .await
-            .unwrap();
+        window.set_property_string(Atom::WM_NAME, format!("test title {}", counter)).await.unwrap();
 
         connected.log_errors().await;
     }

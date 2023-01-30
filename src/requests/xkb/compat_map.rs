@@ -1,10 +1,8 @@
 use super::*;
 
 pub use crate::coding::xkb::{
-    Action as SymAction, ActionMessageFlag, GetCompatMapResponse, IsoLockFlag, IsoLockNoAffect,
-    LockDeviceFlags, ModDef, MovePointerFlag, SAControls, SAGroup, SAMods, SAType, SetOfGroup,
-    SetPointerDefaultFlag, SwitchScreenFlag, SymInterpret, SymInterpretMatch, VModsLow,
-    ValuatorWhat,
+    Action as SymAction, ActionMessageFlag, GetCompatMapResponse, IsoLockFlag, IsoLockNoAffect, LockDeviceFlags, ModDef, MovePointerFlag, SAControls, SAGroup,
+    SAMods, SAType, SetOfGroup, SetPointerDefaultFlag, SwitchScreenFlag, SymInterpret, SymInterpretMatch, VModsLow, ValuatorWhat,
 };
 use crate::coding::xkb::{GetCompatMapRequest, SetCompatMapRequest};
 
@@ -54,16 +52,11 @@ impl CompatMapGroups {
 
 impl X11Connection {
     /// range is Some(start, length)
-    pub async fn xkb_get_compat_map(
-        &self,
-        device: DeviceSpec,
-        groups: SetOfGroup,
-        range: Option<(u16, u16)>,
-    ) -> Result<GetCompatMapResponse> {
-        let seq = send_request_xkb!(
+    pub async fn xkb_get_compat_map(&self, device: DeviceSpec, groups: SetOfGroup, range: Option<(u16, u16)>) -> Result<GetCompatMapResponse> {
+        let reply = send_request_xkb!(
             self,
             XKBOpcode::GetCompatMap,
-            false,
+            GetCompatMapResponse,
             GetCompatMapRequest {
                 device_spec: device.into(),
                 groups: groups,
@@ -71,8 +64,8 @@ impl X11Connection {
                 first_si: range.map(|x| x.0).unwrap_or(0),
                 num_si: range.map(|x| x.1).unwrap_or(0),
             }
-        );
-        let reply = receive_reply!(self, seq, GetCompatMapResponse);
+        )
+        .into_inner();
 
         Ok(reply)
     }
@@ -89,7 +82,6 @@ impl X11Connection {
         send_request_xkb!(
             self,
             XKBOpcode::SetCompatMap,
-            false,
             SetCompatMapRequest {
                 device_spec: device.into(),
                 recompute_actions: recompute_actions,

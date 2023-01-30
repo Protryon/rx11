@@ -1,6 +1,6 @@
 use crate::events::Event;
 use crate::net::X11Connection;
-use crate::{receive_reply, send_request, send_request_ext};
+use crate::{send_request, send_request_ext};
 use anyhow::Result;
 
 pub mod x11;
@@ -23,6 +23,9 @@ pub use shape::*;
 
 pub mod xge;
 pub use xge::*;
+
+pub mod xrecord;
+pub use xrecord::*;
 
 mod misc;
 pub use misc::*;

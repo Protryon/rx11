@@ -3,20 +3,10 @@ use derive_builder::Builder;
 use super::*;
 
 pub use crate::coding::{
-    WindowClass,
-    BitGravity,
-    WinGravity,
-    BackingStore,
-    MapState,
-    CirculateWindowDirection,
-    ChangePropertyMode,
-    StackMode,
-    ConfigureWindowBitmask,
-    EventMask,
+    BackingStore, BitGravity, ChangePropertyMode, CirculateWindowDirection, ConfigureWindowBitmask, EventMask, MapState, StackMode, WinGravity, WindowClass,
 };
 
-#[derive(Clone, Copy)]
-#[derive(derivative::Derivative)]
+#[derive(Clone, Copy, derivative::Derivative)]
 #[derivative(Debug)]
 pub struct Window<'a> {
     pub(crate) handle: u32,
@@ -33,7 +23,6 @@ impl<'a> PartialEq for Window<'a> {
 impl<'a> Eq for Window<'a> {}
 
 impl<'a> PartialOrd for Window<'a> {
-
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.handle.partial_cmp(&other.handle)
     }
@@ -200,114 +189,113 @@ impl<'a> Into<crate::coding::WindowAttributes> for WindowAttributes<'a> {
             BackgroundPixmap::ParentRelative => {
                 attrs.bitmask.set_background_pixmap();
                 attrs.background_pixmap = Some(1);
-            },
+            }
             BackgroundPixmap::Some(x) => {
                 attrs.bitmask.set_background_pixmap();
                 attrs.background_pixmap = Some(x.handle);
-            },
+            }
         }
         match self.background_pixel {
             None => (),
             Some(pixel) => {
                 attrs.bitmask.set_background_pixel();
                 attrs.background_pixel = Some(pixel.0);
-            },
+            }
         }
         match self.border_pixmap {
             BorderPixmap::CopyFromParent => (),
             BorderPixmap::Some(x) => {
                 attrs.bitmask.set_border_pixmap();
                 attrs.border_pixmap = Some(x.handle);
-            },
+            }
         }
         match self.border_pixel {
             None => (),
             Some(pixel) => {
                 attrs.bitmask.set_border_pixel();
                 attrs.border_pixel = Some(pixel.0);
-            },
+            }
         }
         match self.bit_gravity {
             BitGravity::Forget => (),
             gravity => {
                 attrs.bitmask.set_bit_gravity();
                 attrs.bit_gravity = Some(gravity);
-            },
+            }
         }
         match self.win_gravity {
             WinGravity::NorthWest => (),
             gravity => {
                 attrs.bitmask.set_win_gravity();
                 attrs.win_gravity = Some(gravity);
-            },
+            }
         }
         match self.backing_store {
             BackingStore::NotUseful => (),
             store => {
                 attrs.bitmask.set_backing_store();
                 attrs.backing_store = Some(store);
-            },
+            }
         }
         match self.backing_planes {
             u32::MAX => (),
             backing_planes => {
                 attrs.bitmask.set_backing_planes();
                 attrs.backing_planes = Some(backing_planes);
-            },
+            }
         }
         match self.backing_pixel {
             None => (),
             Some(pixel) => {
                 attrs.bitmask.set_backing_pixel();
                 attrs.backing_pixel = Some(pixel.0);
-            },
+            }
         }
         match self.save_under {
             false => (),
             true => {
                 attrs.bitmask.set_save_under();
                 attrs.save_under = Some(true);
-            },
+            }
         }
         match self.event_mask {
             EventMask::ZERO => (),
             event_mask => {
                 attrs.bitmask.set_event_mask();
                 attrs.event_mask = Some(event_mask);
-            },
+            }
         }
         match self.do_not_propagate_mask {
             EventMask::ZERO => (),
             do_not_propagate_mask => {
                 attrs.bitmask.set_do_not_propagate_mask();
                 attrs.do_not_propagate_mask = Some(do_not_propagate_mask);
-            },
+            }
         }
         match self.override_redirect {
             false => (),
             true => {
                 attrs.bitmask.set_override_redirect();
                 attrs.override_redirect = Some(true);
-            },
+            }
         }
         match self.colormap {
             WindowColormap::CopyFromParent => (),
             WindowColormap::Some(colormap) => {
                 attrs.bitmask.set_colormap();
                 attrs.colormap = Some(colormap.handle);
-            },
+            }
         }
         match self.cursor {
             None => (),
             Some(cursor) => {
                 attrs.bitmask.set_cursor();
                 attrs.cursor = Some(cursor.handle);
-            },
+            }
         }
         attrs
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct FetchedWindowAttributes<'a> {
@@ -345,8 +333,8 @@ impl X11Connection {
 
     pub async fn create_window(&self, params: WindowParams<'_>) -> Result<Window<'_>> {
         let window = self.new_resource_id();
-        
-        send_request!(self, params.depth, CreateWindow {
+
+        send_request!(self, reserved params.depth, CreateWindow {
             window: window,
             parent: params.parent.or_else(|| self.root_window(0)).ok_or_else(|| anyhow!("no screens for default parent"))?.handle,
             x: params.x,
@@ -370,18 +358,26 @@ impl X11Connection {
 impl<'a> Window<'a> {
     pub async fn change_attributes(self, params: WindowAttributes<'_>) -> Result<()> {
         let attributes = params.into();
-        send_request!(self.connection, ChangeWindowAttributes {
-            window: self.handle,
-            attributes: attributes,
-        });
+        send_request!(
+            self.connection,
+            ChangeWindowAttributes {
+                window: self.handle,
+                attributes: attributes,
+            }
+        );
         Ok(())
     }
 
     pub async fn get_attributes(self) -> Result<FetchedWindowAttributes<'a>> {
-        let seq = send_request!(self.connection, GetWindowAttributes {
-            window: self.handle,
-        });
-        let (reply, backing_store) = receive_reply!(self.connection, seq, GetWindowAttributesReply, fetched);
+        let reply = send_request!(
+            self.connection,
+            GetWindowAttributesReply,
+            GetWindowAttributes {
+                window: self.handle,
+            }
+        );
+        let backing_store = reply.reserved;
+        let reply = reply.into_inner();
 
         Ok(FetchedWindowAttributes {
             backing_store: BackingStore::decode_sync(&mut &[backing_store][..])?,
@@ -411,68 +407,89 @@ impl<'a> Window<'a> {
     }
 
     pub async fn destroy(self) -> Result<()> {
-        send_request!(self.connection, DestroyWindow {
-            window: self.handle,
-        });
+        send_request!(
+            self.connection,
+            DestroyWindow {
+                window: self.handle,
+            }
+        );
         Ok(())
     }
 
     pub async fn destroy_subwindows(self) -> Result<()> {
-        send_request!(self.connection, DestroySubwindows {
-            window: self.handle,
-        });
+        send_request!(
+            self.connection,
+            DestroySubwindows {
+                window: self.handle,
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_save_set_add(self) -> Result<()> {
-        send_request!(self.connection, InsertDelete::Insert as u8, ChangeSaveSet {
+        send_request!(self.connection, reserved InsertDelete::Insert as u8, ChangeSaveSet {
             window: self.handle,
         });
         Ok(())
     }
 
     pub async fn legacy_save_set_delete(self) -> Result<()> {
-        send_request!(self.connection, InsertDelete::Delete as u8, ChangeSaveSet {
+        send_request!(self.connection, reserved InsertDelete::Delete as u8, ChangeSaveSet {
             window: self.handle,
         });
         Ok(())
     }
 
     pub async fn reparent(self, new_parent: Window<'_>, x: i16, y: i16) -> Result<()> {
-        send_request!(self.connection, ReparentWindow {
-            window: self.handle,
-            parent: new_parent.handle,
-            x: x,
-            y: y,
-        });
+        send_request!(
+            self.connection,
+            ReparentWindow {
+                window: self.handle,
+                parent: new_parent.handle,
+                x: x,
+                y: y,
+            }
+        );
         Ok(())
     }
 
     pub async fn map(self) -> Result<()> {
-        send_request!(self.connection, MapWindow {
-            window: self.handle,
-        });
+        send_request!(
+            self.connection,
+            MapWindow {
+                window: self.handle,
+            }
+        );
         Ok(())
     }
 
     pub async fn map_subwindows(self) -> Result<()> {
-        send_request!(self.connection, MapSubwindows {
-            window: self.handle,
-        });
+        send_request!(
+            self.connection,
+            MapSubwindows {
+                window: self.handle,
+            }
+        );
         Ok(())
     }
 
     pub async fn unmap(self) -> Result<()> {
-        send_request!(self.connection, UnmapWindow {
-            window: self.handle,
-        });
+        send_request!(
+            self.connection,
+            UnmapWindow {
+                window: self.handle,
+            }
+        );
         Ok(())
     }
 
     pub async fn unmap_subwindows(self) -> Result<()> {
-        send_request!(self.connection, UnmapSubwindows {
-            window: self.handle,
-        });
+        send_request!(
+            self.connection,
+            UnmapSubwindows {
+                window: self.handle,
+            }
+        );
         Ok(())
     }
 
@@ -499,23 +516,26 @@ impl<'a> Window<'a> {
         if config.stack_mode.is_some() {
             bitmask.set_stack_mode();
         }
-        send_request!(self.connection, ConfigureWindow {
-            window: self.handle,
-            bitmask: bitmask,
-            x: config.x,
-            y: config.y,
-            width: config.width,
-            height: config.height,
-            border_width: config.border_width,
-            sibling: config.sibling.map(|x| x.handle),
-            stack_mode: config.stack_mode,
-        });
+        send_request!(
+            self.connection,
+            ConfigureWindow {
+                window: self.handle,
+                bitmask: bitmask,
+                x: config.x,
+                y: config.y,
+                width: config.width,
+                height: config.height,
+                border_width: config.border_width,
+                sibling: config.sibling.map(|x| x.handle),
+                stack_mode: config.stack_mode,
+            }
+        );
 
         Ok(())
     }
-    
+
     pub async fn circulate(self, direction: CirculateWindowDirection) -> Result<()> {
-        send_request!(self.connection, direction as u8, CirculateWindow {
+        send_request!(self.connection, reserved direction as u8, CirculateWindow {
             window: self.handle,
         });
 
@@ -523,10 +543,14 @@ impl<'a> Window<'a> {
     }
 
     pub async fn query_tree(self) -> Result<QueryTreeResult<'a>> {
-        let seq = send_request!(self.connection, QueryTree {
-            window: self.handle,
-        });
-        let reply = receive_reply!(self.connection, seq, QueryTreeReply);
+        let reply = send_request!(
+            self.connection,
+            QueryTreeReply,
+            QueryTree {
+                window: self.handle,
+            }
+        )
+        .into_inner();
 
         Ok(QueryTreeResult {
             root: Window {
@@ -540,7 +564,14 @@ impl<'a> Window<'a> {
                     connection: self.connection,
                 }),
             },
-            children: reply.children_windows.into_iter().map(|handle| Window { handle, connection: self.connection }).collect(),
+            children: reply
+                .children_windows
+                .into_iter()
+                .map(|handle| Window {
+                    handle,
+                    connection: self.connection,
+                })
+                .collect(),
         })
     }
 
@@ -555,6 +586,9 @@ impl<'a> Resource<'a> for Window<'a> {
     }
 
     fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self {
-        Self { handle, connection }
+        Self {
+            handle,
+            connection,
+        }
     }
 }

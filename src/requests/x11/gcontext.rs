@@ -3,8 +3,8 @@ use derive_builder::Builder;
 use super::*;
 
 pub use crate::coding::x11::{
-    Arc, ArcMode, CapStyle, ClipSorting, CoordinateMode, FillStyle, GCBitmask, GCFunction,
-    ImageFormat, JoinStyle, LineStyle, Point, Segment, Shape, SubwindowMode,
+    Arc, ArcMode, CapStyle, ClipSorting, CoordinateMode, FillStyle, GCBitmask, GCFunction, ImageFormat, JoinStyle, LineStyle, Point, Segment, Shape,
+    SubwindowMode,
 };
 
 #[derive(Clone, Copy, derivative::Derivative)]
@@ -184,11 +184,7 @@ pub enum TextItem16<'a> {
 }
 
 impl X11Connection {
-    pub async fn create_gcontext(
-        &self,
-        drawable: impl Into<Drawable<'_>>,
-        params: GContextParams<'_>,
-    ) -> Result<GContext<'_>> {
+    pub async fn create_gcontext(&self, drawable: impl Into<Drawable<'_>>, params: GContextParams<'_>) -> Result<GContext<'_>> {
         let gcontext = self.new_resource_id();
 
         send_request!(
@@ -207,17 +203,10 @@ impl X11Connection {
 }
 
 impl<'a> Window<'a> {
-    pub async fn clear_area(
-        self,
-        exposures: bool,
-        x: i16,
-        y: i16,
-        width: u16,
-        height: u16,
-    ) -> Result<()> {
+    pub async fn clear_area(self, exposures: bool, x: i16, y: i16, width: u16, height: u16) -> Result<()> {
         send_request!(
             self.connection,
-            exposures as u8,
+            reserved exposures as u8,
             ClearArea {
                 window: self.handle,
                 x: x,
@@ -266,16 +255,10 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn set_clip_rectangles(
-        self,
-        sorting: ClipSorting,
-        clip_x_origin: i16,
-        clip_y_origin: i16,
-        rectangles: Vec<Rectangle>,
-    ) -> Result<()> {
+    pub async fn set_clip_rectangles(self, sorting: ClipSorting, clip_x_origin: i16, clip_y_origin: i16, rectangles: Vec<Rectangle>) -> Result<()> {
         send_request!(
             self.connection,
-            sorting as u8,
+            reserved sorting as u8,
             SetClipRectangles {
                 gcontext: self.handle,
                 clip_x_origin: clip_x_origin,
@@ -354,15 +337,10 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_point(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        coordinate_mode: CoordinateMode,
-        points: Vec<Point>,
-    ) -> Result<()> {
+    pub async fn poly_point(self, drawable: impl Into<Drawable<'_>>, coordinate_mode: CoordinateMode, points: Vec<Point>) -> Result<()> {
         send_request!(
             self.connection,
-            coordinate_mode as u8,
+            reserved coordinate_mode as u8,
             PolyPoint {
                 drawable: drawable.into().handle(),
                 gcontext: self.handle,
@@ -372,15 +350,10 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_line(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        coordinate_mode: CoordinateMode,
-        points: Vec<Point>,
-    ) -> Result<()> {
+    pub async fn poly_line(self, drawable: impl Into<Drawable<'_>>, coordinate_mode: CoordinateMode, points: Vec<Point>) -> Result<()> {
         send_request!(
             self.connection,
-            coordinate_mode as u8,
+            reserved coordinate_mode as u8,
             PolyLine {
                 drawable: drawable.into().handle(),
                 gcontext: self.handle,
@@ -390,11 +363,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_segment(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        segments: Vec<Segment>,
-    ) -> Result<()> {
+    pub async fn poly_segment(self, drawable: impl Into<Drawable<'_>>, segments: Vec<Segment>) -> Result<()> {
         send_request!(
             self.connection,
             PolySegment {
@@ -406,11 +375,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_rectangle(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        rectangles: Vec<Rectangle>,
-    ) -> Result<()> {
+    pub async fn poly_rectangle(self, drawable: impl Into<Drawable<'_>>, rectangles: Vec<Rectangle>) -> Result<()> {
         send_request!(
             self.connection,
             PolyRectangle {
@@ -434,13 +399,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn fill_poly(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        coordinate_mode: CoordinateMode,
-        shape: Shape,
-        points: Vec<Point>,
-    ) -> Result<()> {
+    pub async fn fill_poly(self, drawable: impl Into<Drawable<'_>>, coordinate_mode: CoordinateMode, shape: Shape, points: Vec<Point>) -> Result<()> {
         send_request!(
             self.connection,
             FillPoly {
@@ -454,11 +413,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_fill_rectangle(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        rectangles: Vec<Rectangle>,
-    ) -> Result<()> {
+    pub async fn poly_fill_rectangle(self, drawable: impl Into<Drawable<'_>>, rectangles: Vec<Rectangle>) -> Result<()> {
         send_request!(
             self.connection,
             PolyFillRectangle {
@@ -470,11 +425,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_fill_arc(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        arcs: Vec<Arc>,
-    ) -> Result<()> {
+    pub async fn poly_fill_arc(self, drawable: impl Into<Drawable<'_>>, arcs: Vec<Arc>) -> Result<()> {
         send_request!(
             self.connection,
             PolyFillArc {
@@ -500,7 +451,7 @@ impl<'a> GContext<'a> {
     ) -> Result<()> {
         send_request!(
             self.connection,
-            format as u8,
+            reserved format as u8,
             PutImage {
                 drawable: drawable.into().handle(),
                 gcontext: self.handle,
@@ -529,9 +480,10 @@ impl<'a> GContext<'a> {
         if format == ImageFormat::Bitmap {
             bail!("cannot request bitmap image from x11");
         }
-        let seq = send_request!(
+        let reply = send_request!(
             self.connection,
-            format as u8,
+            reserved format as u8,
+            GetImageReply,
             GetImage {
                 drawable: drawable.into().handle(),
                 x: x,
@@ -541,25 +493,22 @@ impl<'a> GContext<'a> {
                 plane_mask: plane_mask,
             }
         );
-        let (reply, depth) = receive_reply!(self.connection, seq, GetImageReply, fetched);
+        let depth = reply.reserved;
+        let reply = reply.into_inner();
 
         Ok(FetchedImage {
             depth,
             visual: match reply.visual {
                 0 => None,
-                handle => Some(Visual { handle }),
+                handle => Some(Visual {
+                    handle,
+                }),
             },
             data: reply.data,
         })
     }
 
-    pub async fn poly_text8(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        x: i16,
-        y: i16,
-        items: impl IntoIterator<Item = TextItem8<'_>>,
-    ) -> Result<()> {
+    pub async fn poly_text8(self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, items: impl IntoIterator<Item = TextItem8<'_>>) -> Result<()> {
         send_request!(
             self.connection,
             PolyText8 {
@@ -595,13 +544,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn poly_text16(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        x: i16,
-        y: i16,
-        items: impl IntoIterator<Item = TextItem16<'_>>,
-    ) -> Result<()> {
+    pub async fn poly_text16(self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, items: impl IntoIterator<Item = TextItem16<'_>>) -> Result<()> {
         send_request!(
             self.connection,
             PolyText16 {
@@ -639,13 +582,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn image_text8(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        x: i16,
-        y: i16,
-        string: String,
-    ) -> Result<()> {
+    pub async fn image_text8(self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, string: String) -> Result<()> {
         send_request!(
             self.connection,
             ImageText8 {
@@ -660,13 +597,7 @@ impl<'a> GContext<'a> {
         Ok(())
     }
 
-    pub async fn image_text16(
-        self,
-        drawable: impl Into<Drawable<'_>>,
-        x: i16,
-        y: i16,
-        string: String,
-    ) -> Result<()> {
+    pub async fn image_text16(self, drawable: impl Into<Drawable<'_>>, x: i16, y: i16, string: String) -> Result<()> {
         send_request!(
             self.connection,
             ImageText16 {
@@ -688,6 +619,9 @@ impl<'a> Resource<'a> for GContext<'a> {
     }
 
     fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self {
-        Self { connection, handle }
+        Self {
+            connection,
+            handle,
+        }
     }
 }

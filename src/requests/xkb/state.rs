@@ -1,12 +1,7 @@
 use super::*;
 
 use crate::coding::xkb::{GetStateRequest, LatchLockStateRequest};
-pub use crate::coding::xkb::{
-    GetStateResponse,
-    ModMask,
-    Group,
-    Keybutmask,
-};
+pub use crate::coding::xkb::{GetStateResponse, Group, Keybutmask, ModMask};
 
 impl Affectable for ModMask {
     const FULL: Self = Self::ALL;
@@ -14,10 +9,15 @@ impl Affectable for ModMask {
 
 impl X11Connection {
     pub async fn xkb_get_state(&self, device: DeviceSpec) -> Result<GetStateResponse> {
-        let seq = send_request_xkb!(self, XKBOpcode::GetState, false, GetStateRequest {
-            device_spec: device.into(),
-        });
-        let reply = receive_reply!(self, seq, GetStateResponse);
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::GetState,
+            GetStateResponse,
+            GetStateRequest {
+                device_spec: device.into(),
+            }
+        )
+        .into_inner();
 
         Ok(reply)
     }
@@ -34,17 +34,21 @@ impl X11Connection {
     ) -> Result<()> {
         let lock_mods = lock_mods.into();
         let latch_mods = latch_mods.into();
-        send_request_xkb!(self, XKBOpcode::LatchLockState, true, LatchLockStateRequest {
-            device_spec: device.into(),
-            affect_mod_locks: lock_mods.affect,
-            mod_locks: lock_mods.value,
-            lock_group: lock_group.is_some(),
-            group_lock: lock_group.unwrap_or(Group::One),
-            affect_mod_latches: latch_mods.affect,
-            mod_latches: latch_mods.value,
-            latch_group: latch_group.is_some(),
-            group_latch: latch_group.unwrap_or(0),
-        });
+        send_request_xkb!(
+            self,
+            XKBOpcode::LatchLockState,
+            LatchLockStateRequest {
+                device_spec: device.into(),
+                affect_mod_locks: lock_mods.affect,
+                mod_locks: lock_mods.value,
+                lock_group: lock_group.is_some(),
+                group_lock: lock_group.unwrap_or(Group::One),
+                affect_mod_latches: latch_mods.affect,
+                mod_latches: latch_mods.value,
+                latch_group: latch_group.is_some(),
+                group_latch: latch_group.unwrap_or(0),
+            }
+        );
 
         Ok(())
     }

@@ -1,14 +1,9 @@
-use bitvec::{prelude::BitVec, order::Lsb0};
+use bitvec::{order::Lsb0, prelude::BitVec};
 use derive_builder::Builder;
 
 use super::*;
 
-pub use crate::coding::{
-    OffOnDefault,
-    LedMode,
-    GetPointerControlReply,
-    SetMappingStatus,
-};
+pub use crate::coding::{GetPointerControlReply, LedMode, OffOnDefault, SetMappingStatus};
 
 #[derive(Default, Builder, Debug, Clone)]
 #[builder(default)]
@@ -44,11 +39,9 @@ pub struct KeyboardControl {
 
 impl X11Connection {
     pub async fn legacy_query_keymap(&self) -> Result<BitVec<u8, Lsb0>> {
-        let seq = send_request!(self, QueryKeymap {
-        });
-        let reply = receive_reply!(self, seq, QueryKeymapReply);
+        let reply = send_request!(self, QueryKeymapReply, QueryKeymap {});
 
-        Ok(BitVec::from_vec(reply.keys))
+        Ok(BitVec::from_vec(reply.into_inner().keys))
     }
 
     pub async fn legacy_change_keyboard_mapping(&self, first_keycode: u8, keysyms: Vec<Vec<Keysym>>) -> Result<()> {
@@ -63,7 +56,7 @@ impl X11Connection {
         if keycode_count > u8::MAX as usize {
             bail!("cannot have >255 keycodes");
         }
-        send_request!(self, keycode_count as u8, ChangeKeyboardMapping {
+        send_request!(self, reserved keycode_count as u8, ChangeKeyboardMapping {
             first_keycode: first_keycode,
             keysyms_per_keycode: keysyms_per_keycode as u8,
             keysyms: keysyms.into_iter().flatten().map(|x| x.0).collect(),
@@ -72,12 +65,21 @@ impl X11Connection {
     }
 
     pub async fn legacy_get_keyboard_mapping(&self, first_keycode: u8, count: u8) -> Result<Vec<Vec<Keysym>>> {
-        let seq = send_request!(self, GetKeyboardMapping {
-            first_keycode: first_keycode,
-            count: count,
-        });
-        let (reply, keysyms_per_keycode) = receive_reply!(self, seq, GetKeyboardMappingReply, fetched);
-        Ok(reply.keysyms.chunks_exact(keysyms_per_keycode as usize).map(|x| x.iter().copied().map(Keysym).collect()).collect())
+        let reply = send_request!(
+            self,
+            GetKeyboardMappingReply,
+            GetKeyboardMapping {
+                first_keycode: first_keycode,
+                count: count,
+            }
+        );
+        let keysyms_per_keycode = reply.reserved;
+        let reply = reply.into_inner();
+        Ok(reply
+            .keysyms
+            .chunks_exact(keysyms_per_keycode as usize)
+            .map(|x| x.iter().copied().map(Keysym).collect())
+            .collect())
     }
 
     pub async fn legacy_change_keyboard_control(&self, params: KeyboardControlParams) -> Result<()> {
@@ -106,25 +108,28 @@ impl X11Connection {
         if params.auto_repeat_mode.is_some() {
             bitmask |= ChangeKeyboardControlBitmask::AUTO_REPEAT_MODE;
         }
-    
-        send_request!(self, ChangeKeyboardControl {
-            bitmask: bitmask,
-            key_click_percent: params.key_click_percent,
-            bell_percent: params.bell_percent,
-            bell_pitch: params.bell_pitch,
-            bell_duration: params.bell_duration,
-            led: params.led,
-            led_mode: params.led_mode,
-            key: params.key,
-            auto_repeat_mode: params.auto_repeat_mode,
-        });
+
+        send_request!(
+            self,
+            ChangeKeyboardControl {
+                bitmask: bitmask,
+                key_click_percent: params.key_click_percent,
+                bell_percent: params.bell_percent,
+                bell_pitch: params.bell_pitch,
+                bell_duration: params.bell_duration,
+                led: params.led,
+                led_mode: params.led_mode,
+                key: params.key,
+                auto_repeat_mode: params.auto_repeat_mode,
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_get_keyboard_control(&self) -> Result<KeyboardControl> {
-        let seq = send_request!(self, GetKeyboardControl {
-        });
-        let (reply, global_auto_repeat) = receive_reply!(self, seq, GetKeyboardControlReply, fetched);
+        let reply = send_request!(self, GetKeyboardControlReply, GetKeyboardControl {});
+        let global_auto_repeat = reply.reserved;
+        let reply = reply.into_inner();
         Ok(KeyboardControl {
             global_auto_repeat: global_auto_repeat != 0,
             led_mask: reply.led_mask,
@@ -137,59 +142,69 @@ impl X11Connection {
     }
 
     pub async fn legacy_bell(&self, percent: i8) -> Result<()> {
-        send_request!(self, percent as u8, Bell {
+        send_request!(self, reserved percent as u8, Bell {
         });
         Ok(())
     }
 
-    pub async fn legacy_change_pointer_control(&self, acceleration_numerator: i16, acceleration_denominator: i16, threshold: i16, do_acceleration: bool, do_threshold: bool) -> Result<()> {
-        send_request!(self, ChangePointerControl {
-            acceleration_numerator: acceleration_numerator,
-            acceleration_denominator: acceleration_denominator,
-            threshold: threshold,
-            do_acceleration: do_acceleration,
-            do_threshold: do_threshold,
-        });
+    pub async fn legacy_change_pointer_control(
+        &self,
+        acceleration_numerator: i16,
+        acceleration_denominator: i16,
+        threshold: i16,
+        do_acceleration: bool,
+        do_threshold: bool,
+    ) -> Result<()> {
+        send_request!(
+            self,
+            ChangePointerControl {
+                acceleration_numerator: acceleration_numerator,
+                acceleration_denominator: acceleration_denominator,
+                threshold: threshold,
+                do_acceleration: do_acceleration,
+                do_threshold: do_threshold,
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_get_pointer_control(&self) -> Result<GetPointerControlReply> {
-        let seq = send_request!(self, GetPointerControl {
-        });
-        let reply = receive_reply!(self, seq, GetPointerControlReply);
-        Ok(reply)
+        let reply = send_request!(self, GetPointerControlReply, GetPointerControl {});
+        Ok(reply.into_inner())
     }
 
     pub async fn legacy_set_pointer_mapping(&self, map: Vec<u8>) -> Result<SetMappingStatus> {
         if map.len() > u8::MAX as usize {
             bail!("map max len is 255");
         }
-        let seq = send_request!(self, map.len() as u8, SetPointerMapping {
+        let reply = send_request!(self, reserved map.len() as u8, SetPointerMappingReply, SetPointerMapping {
             map: map,
         });
-        let (_, status) = receive_reply!(self, seq, SetPointerMappingReply, fetched);
-        Ok(SetMappingStatus::decode_sync(&mut &[status][..])?)
+        Ok(SetMappingStatus::decode_sync(&mut &[reply.reserved][..])?)
     }
 
     pub async fn legacy_get_pointer_mapping(&self) -> Result<Vec<u8>> {
-        let seq = send_request!(self, GetPointerMapping {
+        let reply = send_request!(self, parse_reserved GetPointerMappingReply, GetPointerMapping {
         });
-        let reply = receive_reply!(self, seq, GetPointerMappingReply, doubled);
-        Ok(reply.map)
+        Ok(reply.into_inner().map)
     }
 
     pub async fn legacy_set_modifier_mapping(&self, keycodes_per_modifier: u8, keycodes: Vec<u8>) -> Result<bool> {
-        let seq = send_request!(self, keycodes_per_modifier, SetModifierMapping {
+        let reply = send_request!(self, reserved keycodes_per_modifier, SetModifierMappingReply, SetModifierMapping {
             keycodes: keycodes,
         });
-        let (_, status) = receive_reply!(self, seq, SetModifierMappingReply, fetched);
-        Ok(status != 0)
+        Ok(reply.reserved != 0)
     }
 
     pub async fn legacy_get_modifier_mapping(&self) -> Result<Vec<Vec<u8>>> {
-        let seq = send_request!(self, GetModifierMapping {
+        let reply = send_request!(self, parse_reserved GetModifierMappingReply, GetModifierMapping {
         });
-        let (reply, keycodes_per_modifier) = receive_reply!(self, seq, GetModifierMappingReply, double_fetched);
-        Ok(reply.keycodes.chunks_exact(keycodes_per_modifier as usize).map(|x| x.to_vec()).collect())
+        let keycodes_per_modifier = reply.reserved;
+        Ok(reply
+            .into_inner()
+            .keycodes
+            .chunks_exact(keycodes_per_modifier as usize)
+            .map(|x| x.to_vec())
+            .collect())
     }
 }

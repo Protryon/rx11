@@ -1,5 +1,5 @@
-pub use crate::coding::{xfixes::XFErrorCode, xinput2::XIErrorCode, xkb::XKBErrorCode, ErrorCode};
-use crate::requests::{XFIXES_EXT_NAME, XINPUT_EXT_NAME, XKB_EXT_NAME};
+pub use crate::coding::{xfixes::XFErrorCode, xinput2::XIErrorCode, xkb::XKBErrorCode, xrecord::XRecordErrorCode, ErrorCode};
+use crate::requests::{XFIXES_EXT_NAME, XINPUT_EXT_NAME, XKB_EXT_NAME, XRECORD_EXT_NAME};
 
 use super::*;
 
@@ -9,6 +9,7 @@ pub enum X11ErrorCode {
     XKB(XKBErrorCode),
     XI(XIErrorCode),
     XF(XFErrorCode),
+    XRecord(XRecordErrorCode),
     Unknown(u8),
 }
 
@@ -30,6 +31,11 @@ impl X11ErrorCode {
         if let Some(xfixes) = connection.get_ext_info(XFIXES_EXT_NAME) {
             if code == xfixes.error_start {
                 return X11ErrorCode::XF(XFErrorCode::BadRegion);
+            }
+        }
+        if let Some(xrecord) = connection.get_ext_info(XRECORD_EXT_NAME) {
+            if code == xrecord.error_start {
+                return X11ErrorCode::XRecord(XRecordErrorCode::RecordContext);
             }
         }
         X11ErrorCode::Unknown(code)

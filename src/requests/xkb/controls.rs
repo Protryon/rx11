@@ -2,14 +2,8 @@ use derive_builder::Builder;
 
 use super::*;
 
+pub use crate::coding::xkb::{AXOption, BoolCtrl, GetControlsResponse, MouseKeys, VMod};
 use crate::coding::xkb::{GetControlsRequest, SetControlsRequest};
-pub use crate::coding::xkb::{
-    GetControlsResponse,
-    VMod,
-    AXOption,
-    BoolCtrl,
-    MouseKeys,
-};
 
 impl Affectable for VMod {
     const FULL: Self = Self::ALL;
@@ -50,47 +44,52 @@ pub struct SetControls {
 
 impl X11Connection {
     pub async fn xkb_get_controls(&self, device: DeviceSpec) -> Result<GetControlsResponse> {
-        let seq = send_request_xkb!(self, XKBOpcode::GetControls, false, GetControlsRequest {
-            device_spec: device.into(),
-        });
-        let reply = receive_reply!(self, seq, GetControlsResponse);
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::GetControls,
+            GetControlsResponse,
+            GetControlsRequest {
+                device_spec: device.into(),
+            }
+        )
+        .into_inner();
 
         Ok(reply)
     }
 
-    pub async fn xkb_set_controls(
-        &self,
-        device: DeviceSpec,
-        controls: SetControls,
-    ) -> Result<()> {
-        send_request_xkb!(self, XKBOpcode::SetControls, true, SetControlsRequest {
-            device_spec: device.into(),
-            affect_internal_real_mods: controls.internal_real_mods.affect,
-            internal_real_mods: controls.internal_real_mods.value,
-            affect_ignore_lock_real_mods: controls.ignore_lock_real_mods.affect,
-            ignore_lock_real_mods: controls.ignore_lock_real_mods.value,
-            affect_internal_virtual_mods: controls.internal_virtual_mods.affect,
-            internal_virtual_mods: controls.internal_virtual_mods.value,
-            affect_ignore_lock_virtual_mods: controls.ignore_lock_virtual_mods.affect,
-            ignore_lock_virtual_mods: controls.ignore_lock_virtual_mods.value,
-            mouse_keys_default_button: controls.mouse_keys_default_button,
-            groups_wrap: controls.groups_wrap,
-            access_x_option: controls.access_x_option,
-            affect_enabled_controls: controls.enabled_controls.affect,
-            enabled_controls: controls.enabled_controls.value,
-            change_controls: controls.change_controls,
-            repeat_delay: controls.repeat_delay,
-            repeat_interval: controls.repeat_interval,
-            slow_keys_delay: controls.slow_keys_delay,
-            debounce_delay: controls.debounce_delay,
-            mouse_keys: controls.mouse_keys,
-            access_x_timeout: controls.access_x_timeout,
-            access_x_timeout_mask: controls.access_x_timeout_mask,
-            access_x_timeout_values: controls.access_x_timeout_values,
-            access_x_timeout_options_mask: controls.access_x_timeout_options_mask,
-            access_x_timeout_options_values: controls.access_x_timeout_options_values,
-            per_key_repeat: controls.per_key_repeat.to_vec(),
-        });
+    pub async fn xkb_set_controls(&self, device: DeviceSpec, controls: SetControls) -> Result<()> {
+        send_request_xkb!(
+            self,
+            XKBOpcode::SetControls,
+            SetControlsRequest {
+                device_spec: device.into(),
+                affect_internal_real_mods: controls.internal_real_mods.affect,
+                internal_real_mods: controls.internal_real_mods.value,
+                affect_ignore_lock_real_mods: controls.ignore_lock_real_mods.affect,
+                ignore_lock_real_mods: controls.ignore_lock_real_mods.value,
+                affect_internal_virtual_mods: controls.internal_virtual_mods.affect,
+                internal_virtual_mods: controls.internal_virtual_mods.value,
+                affect_ignore_lock_virtual_mods: controls.ignore_lock_virtual_mods.affect,
+                ignore_lock_virtual_mods: controls.ignore_lock_virtual_mods.value,
+                mouse_keys_default_button: controls.mouse_keys_default_button,
+                groups_wrap: controls.groups_wrap,
+                access_x_option: controls.access_x_option,
+                affect_enabled_controls: controls.enabled_controls.affect,
+                enabled_controls: controls.enabled_controls.value,
+                change_controls: controls.change_controls,
+                repeat_delay: controls.repeat_delay,
+                repeat_interval: controls.repeat_interval,
+                slow_keys_delay: controls.slow_keys_delay,
+                debounce_delay: controls.debounce_delay,
+                mouse_keys: controls.mouse_keys,
+                access_x_timeout: controls.access_x_timeout,
+                access_x_timeout_mask: controls.access_x_timeout_mask,
+                access_x_timeout_values: controls.access_x_timeout_values,
+                access_x_timeout_options_mask: controls.access_x_timeout_options_mask,
+                access_x_timeout_options_values: controls.access_x_timeout_options_values,
+                per_key_repeat: controls.per_key_repeat.to_vec(),
+            }
+        );
 
         Ok(())
     }

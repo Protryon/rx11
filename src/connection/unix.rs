@@ -28,13 +28,14 @@ impl UnixConnection {
 
     async fn connect_unix(path: &str) -> Result<Self> {
         let socket = UnixStream::connect(path).await?;
-        Ok(UnixConnection { connection: socket })
+        Ok(UnixConnection {
+            connection: socket,
+        })
     }
 
     async fn connect_abstract(raw_path: &str) -> Result<Self> {
         // let mut abstract_stream = StdUnixStream::
-        let socket =
-            unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0) };
+        let socket = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0) };
         //  | libc::SOCK_NONBLOCK
         if socket < 0 {
             return Err(IoError::last_os_error().into());
@@ -43,13 +44,7 @@ impl UnixConnection {
 
         tokio::task::spawn_blocking(move || -> Result<()> {
             let (sockaddr, len) = unsafe { sockaddr_un(&*path)? };
-            let ret = unsafe {
-                libc::connect(
-                    socket,
-                    &sockaddr as *const libc::sockaddr_un as *const libc::sockaddr,
-                    len,
-                )
-            };
+            let ret = unsafe { libc::connect(socket, &sockaddr as *const libc::sockaddr_un as *const libc::sockaddr, len) };
             if ret < 0 {
                 return Err(IoError::last_os_error().into());
             }
@@ -66,15 +61,12 @@ impl UnixConnection {
 
         info!("X11 connected at {}", raw_path);
 
-        Ok(UnixConnection { connection: socket })
+        Ok(UnixConnection {
+            connection: socket,
+        })
     }
 
-    pub fn into_split(
-        self,
-    ) -> (
-        impl AsyncRead + Unpin + Send + Sync + 'static,
-        impl AsyncWrite + Unpin + Send + Sync + 'static,
-    ) {
+    pub fn into_split(self) -> (impl AsyncRead + Unpin + Send + Sync + 'static, impl AsyncWrite + Unpin + Send + Sync + 'static) {
         self.connection.into_split()
     }
 }
@@ -95,10 +87,7 @@ unsafe fn sockaddr_un(path: &str) -> std::io::Result<(libc::sockaddr_un, libc::s
     // }
 
     if bytes.len() >= addr.sun_path.len() {
-        return Err(IoError::new(
-            std::io::ErrorKind::InvalidInput,
-            anyhow!("path must be shorter than SUN_LEN"),
-        ));
+        return Err(IoError::new(std::io::ErrorKind::InvalidInput, anyhow!("path must be shorter than SUN_LEN")));
     }
     for (dst, src) in addr.sun_path.iter_mut().zip(bytes.iter()) {
         *dst = *src as libc::c_char;

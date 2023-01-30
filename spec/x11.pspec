@@ -958,6 +958,13 @@ type MajorOpcode = enum u8 {
     NoOperation = 127,
 };
 
+type RequestHeader = container {
+    major_opcode: u8,
+    minor_opcode: u8,
+    length: u16,
+    ext_length: u32 { length == 0 },
+};
+
 type Request(pad_len: u64) = container {
     major_opcode: u8,
     minor_opcode: u8,

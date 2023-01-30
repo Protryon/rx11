@@ -4,8 +4,8 @@
 * Implement `render`
   * api
 * Implement `record`
-  * pspec
-  * api
+  * high level request/reply types
+  * dual endianness support for delivered events
 * Implement `mit-shm`
   * api
 * Implement `dpms`

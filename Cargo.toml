@@ -21,6 +21,7 @@ internment = "0.6"
 fixed = "1.13"
 bitvec = "1.0"
 intmap = "0.7"
+tokio-stream = "0.1"
 
 [dev-dependencies]
 env_logger = "0.9"

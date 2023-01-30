@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::coding::xkb::{GetNamesResponse, GetNamesRequest};
+use crate::coding::xkb::{GetNamesRequest, GetNamesResponse};
 
 use super::*;
 
@@ -25,7 +25,6 @@ pub struct Names {
 }
 
 impl X11Connection {
-
     pub(crate) async fn xkb_parse_names(&self, reply: GetNamesResponse) -> Result<Names> {
         let keycodes_name = self.maybe_get_atom_name(reply.values.keycodes_name_atom);
         let geometry_name = self.maybe_get_atom_name(reply.values.geometry_name_atom);
@@ -108,17 +107,21 @@ impl X11Connection {
             radio_group_names: radio_group_names.await?,
         })
     }
-    
+
     pub async fn xkb_get_names(&self, device: DeviceSpec, which: NameDetail) -> Result<Names> {
-        let seq = send_request_xkb!(self, XKBOpcode::GetNames, false, GetNamesRequest {
-            device_spec: device.into(),
-            which: which,
-        });
-        let reply = receive_reply!(self, seq, GetNamesResponse);
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::GetNames,
+            GetNamesResponse,
+            GetNamesRequest {
+                device_spec: device.into(),
+                which: which,
+            }
+        )
+        .into_inner();
 
         self.xkb_parse_names(reply).await
     }
 
     //TODO: pub async fn xkb_set_names(&self, device: DeviceSpec, names: Names) -> Result<()>;
-
 }

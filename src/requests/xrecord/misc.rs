@@ -1,19 +1,19 @@
 use crate::{
-    coding::xrandr::{QueryVersionRequest, QueryVersionResponse},
+    coding::xrecord::{QueryVersionRequest, QueryVersionResponse},
     net::{ExtInfo, Extension},
 };
 
 use super::*;
 
 impl X11Connection {
-    pub(crate) async fn enable_xrandr(&self) -> Result<()> {
+    pub(crate) async fn enable_xrecord(&self) -> Result<()> {
         // query_extension
-        let queried = self.query_extension(XRANDR_EXT_NAME).await?;
-        ensure!(queried.present, "xrandr missing on x11 server");
+        let queried = self.query_extension(XRECORD_EXT_NAME).await?;
+        ensure!(queried.present, "xrecord missing on x11 server");
         self.0.registered_extensions.insert(
-            XRANDR_EXT_NAME.to_string(),
+            XRECORD_EXT_NAME.to_string(),
             ExtInfo {
-                extension: Extension::XRandr,
+                extension: Extension::XRecord,
                 major_opcode: queried.major_opcode,
                 event_start: queried.first_event,
                 error_start: queried.first_error,
@@ -25,15 +25,15 @@ impl X11Connection {
         let reply = send_request_ext!(
             self,
             queried.major_opcode,
-            XROpcode::QueryVersion,
+            XRecordOpcode::QueryVersion,
             QueryVersionResponse,
             QueryVersionRequest {
                 major_version: 1,
-                minor_version: 5,
+                minor_version: 13,
             }
         );
         if reply.major_version != 1 {
-            bail!("unsupported xrandr version on server: {}.{}", reply.major_version, reply.minor_version);
+            bail!("unsupported xrecord version on server: {}.{}", reply.major_version, reply.minor_version);
         }
         Ok(())
     }

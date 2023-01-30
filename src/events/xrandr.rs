@@ -1,10 +1,10 @@
-
-use anyhow::Result;
-use crate::{net::X11Connection, requests::{Timestamp, Window, Crtc, Mode, Output, Atom, Provider}, coding::xrandr::{self, XREventCode, XREventData, Rotation, SubPixel, NotifyCode, NotifyData, Connection}};
-pub use crate::coding::xrandr::{
-    PropertyNotifyState,
-    XREventMask,
+pub use crate::coding::xrandr::{PropertyNotifyState, XREventMask};
+use crate::{
+    coding::xrandr::{self, Connection, NotifyCode, NotifyData, Rotation, SubPixel, XREventCode, XREventData},
+    net::X11Connection,
+    requests::{Atom, Crtc, Mode, Output, Provider, Timestamp, Window},
 };
+use anyhow::Result;
 
 #[derive(Clone, Debug)]
 pub enum XREvent<'a> {
@@ -164,7 +164,17 @@ pub struct ResourceChangeEvent<'a> {
 
 async fn notify_from_protocol<'a>(connection: &'a X11Connection, event: xrandr::NotifyEvent) -> Result<XREvent<'a>> {
     Ok(match event.data {
-        NotifyData::CrtcChange { time, window, crtc, mode, rotation, x, y, width, height } => XREvent::CrtcChange(CrtcChangeEvent {
+        NotifyData::CrtcChange {
+            time,
+            window,
+            crtc,
+            mode,
+            rotation,
+            x,
+            y,
+            width,
+            height,
+        } => XREvent::CrtcChange(CrtcChangeEvent {
             sequence_number: event.sequence_number,
             time: Timestamp(time),
             window: Window {
@@ -185,7 +195,17 @@ async fn notify_from_protocol<'a>(connection: &'a X11Connection, event: xrandr::
             width,
             height,
         }),
-        NotifyData::OutputChange { time, config_time, window, output, crtc, mode, rotation, connection: conn, subpixel_order } => XREvent::OutputChange(OutputChangeEvent {
+        NotifyData::OutputChange {
+            time,
+            config_time,
+            window,
+            output,
+            crtc,
+            mode,
+            rotation,
+            connection: conn,
+            subpixel_order,
+        } => XREvent::OutputChange(OutputChangeEvent {
             sequence_number: event.sequence_number,
             time: Timestamp(time),
             config_time: Timestamp(config_time),
@@ -209,7 +229,13 @@ async fn notify_from_protocol<'a>(connection: &'a X11Connection, event: xrandr::
             connection: conn,
             subpixel_order,
         }),
-        NotifyData::OutputProperty { window, output, name_atom, time, status } => XREvent::OutputProperty(OutputPropertyEvent {
+        NotifyData::OutputProperty {
+            window,
+            output,
+            name_atom,
+            time,
+            status,
+        } => XREvent::OutputProperty(OutputPropertyEvent {
             sequence_number: event.sequence_number,
             window: Window {
                 handle: window,
@@ -223,7 +249,11 @@ async fn notify_from_protocol<'a>(connection: &'a X11Connection, event: xrandr::
             time: Timestamp(time),
             status,
         }),
-        NotifyData::ProviderChange { time, window, provider } => XREvent::ProviderChange(ProviderChangeEvent {
+        NotifyData::ProviderChange {
+            time,
+            window,
+            provider,
+        } => XREvent::ProviderChange(ProviderChangeEvent {
             sequence_number: event.sequence_number,
             time: Timestamp(time),
             window: Window {
@@ -235,7 +265,13 @@ async fn notify_from_protocol<'a>(connection: &'a X11Connection, event: xrandr::
                 connection,
             },
         }),
-        NotifyData::ProviderProperty { window, provider, name_atom, time, status } => XREvent::ProviderProperty(ProviderPropertyEvent {
+        NotifyData::ProviderProperty {
+            window,
+            provider,
+            name_atom,
+            time,
+            status,
+        } => XREvent::ProviderProperty(ProviderPropertyEvent {
             sequence_number: event.sequence_number,
             window: Window {
                 handle: window,
@@ -249,7 +285,10 @@ async fn notify_from_protocol<'a>(connection: &'a X11Connection, event: xrandr::
             time: Timestamp(time),
             status,
         }),
-        NotifyData::ResourceChange { time, window } => XREvent::ResourceChange(ResourceChangeEvent {
+        NotifyData::ResourceChange {
+            time,
+            window,
+        } => XREvent::ResourceChange(ResourceChangeEvent {
             sequence_number: event.sequence_number,
             time: Timestamp(time),
             window: Window {
@@ -333,5 +372,4 @@ fn notify_to_protocol(event: XREvent<'_>) -> xrandr::NotifyEvent {
             },
         },
     }
-    
 }

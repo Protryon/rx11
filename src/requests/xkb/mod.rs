@@ -1,26 +1,34 @@
 use super::*;
-use crate::coding::RequestBody;
-use crate::coding::xkb::{
-    XKBOpcode,
-};
 pub use crate::coding::xkb::XKBEventMask;
+use crate::coding::xkb::XKBOpcode;
+use crate::coding::RequestBody;
 
 pub const XKB_EXT_NAME: &str = "XKEYBOARD";
 const XKB_EVENT_COUNT: u8 = 1;
 
 macro_rules! send_request_xkb {
-    ($self_:expr, $opcode:expr, $is_void:expr, $name:ident { $($key:ident: $value:expr,)* }) => {
+    ($self_:expr, $opcode:expr, $name:ident { $($key:ident: $value:expr,)* }) => {
         {
-            let raw = $name {
-                $($key: $value,)*
-                ..Default::default()
-            };
-            let mut buf_out = vec![];
-            raw.encode_sync(&mut buf_out)?;
             let ext_code = $self_.0.registered_extensions.get(XKB_EXT_NAME).unwrap().major_opcode;
-            $self_.send_request(ext_code as u8, $opcode as u8, $is_void, RequestBody::Ext(crate::coding::ExtRequest {
-                data: buf_out,
-            })).await?
+            send_request_ext!($self_, ext_code, $opcode, $name { $($key: $value,)* })
+        }
+    };
+    ($self_:expr, $opcode:expr, $reply:ident, $name:ident { $($key:ident: $value:expr,)* }) => {
+        {
+            let ext_code = $self_.0.registered_extensions.get(XKB_EXT_NAME).unwrap().major_opcode;
+            send_request_ext!($self_, ext_code, $opcode, $reply, $name { $($key: $value,)* })
+        }
+    };
+    ($self_:expr, $opcode:expr, parse_reserved $reply:ident, $name:ident { $($key:ident: $value:expr,)* }) => {
+        {
+            let ext_code = $self_.0.registered_extensions.get(XKB_EXT_NAME).unwrap().major_opcode;
+            send_request_ext!($self_, ext_code, $opcode, parse_reserved $reply, $name { $($key: $value,)* })
+        }
+    };
+    ($self_:expr, $opcode:expr, stream, $reply:ident, $name:ident { $($key:ident: $value:expr,)* }) => {
+        {
+            let ext_code = $self_.0.registered_extensions.get(XKB_EXT_NAME).unwrap().major_opcode;
+            send_request_ext!($self_, ext_code, $opcode, stream, $reply, $name { $($key: $value,)* })
         }
     };
 }

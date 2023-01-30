@@ -2,9 +2,7 @@ use derive_builder::Builder;
 
 use super::*;
 
-pub use crate::coding::xkb::{
-    AXNDetail, CMDetail, Control, MapPart, NKNDetail, NameDetail, StatePart, XIFeature,
-};
+pub use crate::coding::xkb::{AXNDetail, CMDetail, Control, MapPart, NKNDetail, NameDetail, StatePart, XIFeature};
 use crate::coding::xkb::{SelectEventDetails, SelectEventsRequest, XKBEventMask};
 
 impl Affectable for NKNDetail {
@@ -128,7 +126,6 @@ impl X11Connection {
         send_request_xkb!(
             self,
             XKBOpcode::SelectEvents,
-            true,
             SelectEventsRequest {
                 device_spec: device.into(),
                 affect_which: affect_events,

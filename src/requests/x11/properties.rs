@@ -44,6 +44,28 @@ impl From<Vec<u32>> for PropertyValue {
     }
 }
 
+impl TryInto<String> for PropertyValue {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<String> {
+        match self {
+            PropertyValue::U8(bytes) => Ok(String::from_utf8(bytes)?),
+            _ => bail!("invalid type for string version"),
+        }
+    }
+}
+
+impl PropertyValue {
+    pub fn present(self) -> Option<Self> {
+        match self {
+            PropertyValue::U8(x) if x.is_empty() => None,
+            PropertyValue::U16(x) if x.is_empty() => None,
+            PropertyValue::U32(x) if x.is_empty() => None,
+            x => Some(x),
+        }
+    }
+}
+
 impl<'a> Window<'a> {
     pub async fn set_property_string<S: AsRef<str>>(self, property: Atom, value: S) -> Result<()> {
         self.replace_property(property, Atom::STRING, value.as_ref()).await
@@ -74,7 +96,7 @@ impl<'a> Window<'a> {
             PropertyValue::U32(data) => data.into_iter().flat_map(|x| x.to_be_bytes()).collect(),
         };
 
-        send_request!(self.connection, mode as u8, ChangeProperty {
+        send_request!(self.connection, reserved mode as u8, ChangeProperty {
             window: self.handle,
             property: property.handle,
             type_: type_.handle,
@@ -87,23 +109,27 @@ impl<'a> Window<'a> {
     }
 
     pub async fn delete_property(self, property: Atom) -> Result<()> {
-        send_request!(self.connection, DeleteProperty {
-            window: self.handle,
-            property: property.handle,
-        });
+        send_request!(
+            self.connection,
+            DeleteProperty {
+                window: self.handle,
+                property: property.handle,
+            }
+        );
 
         Ok(())
     }
 
     pub async fn get_property_full(self, property: Atom, type_: Option<Atom>, long_offset: u32, long_length: u32, delete: bool) -> Result<GetPropertyResult> {
-        let seq = send_request!(self.connection, delete as u8, GetProperty {
+        let reply = send_request!(self.connection, reserved delete as u8, parse_reserved GetPropertyReply, GetProperty {
             window: self.handle,
             property: property.handle,
             type_: type_.map(|x| x.handle).unwrap_or(0),
             long_offset: long_offset,
             long_length: long_length,
         });
-        let (reply, format) = receive_reply!(self.connection, seq, GetPropertyReply, double_fetched);
+        let format = reply.reserved;
+        let reply = reply.into_inner();
 
         Ok(GetPropertyResult {
             type_: self.connection.get_atom_name(reply.type_).await?,
@@ -123,10 +149,14 @@ impl<'a> Window<'a> {
     }
 
     pub async fn list_properties(self) -> Result<Vec<Atom>> {
-        let seq = send_request!(self.connection, ListProperties {
-            window: self.handle,
-        });
-        let reply = receive_reply!(self.connection, seq, ListPropertiesReply);
+        let reply = send_request!(
+            self.connection,
+            ListPropertiesReply,
+            ListProperties {
+                window: self.handle,
+            }
+        )
+        .into_inner();
 
         let mut out = vec![];
         for atom in reply.atoms {
@@ -136,11 +166,14 @@ impl<'a> Window<'a> {
     }
 
     pub async fn rotate_properties(self, properties: &[Atom], delta: i16) -> Result<()> {
-        send_request!(self.connection, RotateProperties {
-            window: self.handle,
-            properties: properties.iter().map(|x| x.handle).collect(),
-            delta: delta,
-        });
+        send_request!(
+            self.connection,
+            RotateProperties {
+                window: self.handle,
+                properties: properties.iter().map(|x| x.handle).collect(),
+                delta: delta,
+            }
+        );
 
         Ok(())
     }

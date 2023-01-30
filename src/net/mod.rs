@@ -1,9 +1,14 @@
-use std::{sync::{atomic::{AtomicU16, Ordering, AtomicU32}, Arc}, fmt};
+use std::{
+    fmt,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
+};
 
-// use crate::{coding::{x11::{Request, Response, ClientHandshake, ServerHandshake, ServerHandshakeBody, ServerHandshakeSuccess}, RequestBody, ResponseBody, ErrorReply, Screen, ErrorCode, xkb::XKBErrorCode}, requests::{Depth, VisualType, Visual, XKB_EXT_NAME}, events::Event, connection::{UnixConnection, TcpConnection}};
-use dashmap::DashMap;
 use anyhow::Result;
-use tokio::sync::{Mutex, oneshot, mpsc, broadcast};
+use dashmap::DashMap;
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 
 mod errors;
 pub use errors::*;
@@ -20,13 +25,16 @@ pub(crate) use io::*;
 mod event;
 pub use event::*;
 
-use crate::{requests::Screen, coding::{ErrorReply, Response, ServerHandshakeSuccess}};
 pub use crate::coding::x11::{Endianness, PixmapFormat};
+use crate::{
+    coding::{ErrorReply, Response, ServerHandshakeSuccess},
+    requests::Screen,
+};
 
 enum ResponseValue {
     InboundVoidError,
-    Present(Response),
-    Waiting(oneshot::Sender<Response>),
+    Single(oneshot::Sender<Response>),
+    Stream(mpsc::Sender<Response>),
 }
 
 struct X11OutputContext {
@@ -34,10 +42,14 @@ struct X11OutputContext {
     responses: DashMap<u16, ResponseValue>,
 }
 
-pub(crate) struct X11ConnectionInterior {
+pub(crate) struct WriteData {
+    seq: u16,
     writer: mpsc::Sender<RequestLen>,
+}
+
+pub(crate) struct X11ConnectionInterior {
     output: Arc<X11OutputContext>,
-    seq: AtomicU16,
+    write_data: Mutex<WriteData>,
     next_resource_id: AtomicU32,
     pub(crate) handshake: ServerHandshakeSuccess,
     events_sender: broadcast::Sender<(u8, RawEvent)>,
@@ -84,6 +96,7 @@ impl X11Connection {
         ensure_log("xinput2", self.enable_xinput2().await);
         ensure_log("xrandr", self.enable_xrandr().await);
         ensure_log("shape", self.enable_shape().await);
+        ensure_log("xrecord", self.enable_xrecord().await);
     }
 
     pub(crate) fn new_resource_id(&self) -> u32 {
@@ -120,10 +133,13 @@ impl X11Connection {
 
     pub async fn check_errors(&self) -> Vec<X11ErrorReply> {
         let mut errors = self.0.output.pending_errors.lock().await;
-        errors.drain(..).map(|e| X11ErrorReply {
-            bad_value: e.bad_value,
-            code: X11ErrorCode::from_raw(self, e.code),
-        }).collect()
+        errors
+            .drain(..)
+            .map(|e| X11ErrorReply {
+                bad_value: e.bad_value,
+                code: X11ErrorCode::from_raw(self, e.code),
+            })
+            .collect()
     }
 
     pub async fn log_errors(&self) {

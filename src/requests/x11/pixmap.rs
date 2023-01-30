@@ -1,7 +1,6 @@
 use super::*;
 
-#[derive(Clone, Copy)]
-#[derive(derivative::Derivative)]
+#[derive(Clone, Copy, derivative::Derivative)]
 #[derivative(Debug)]
 pub struct Pixmap<'a> {
     pub(crate) handle: u32,
@@ -12,8 +11,8 @@ pub struct Pixmap<'a> {
 impl X11Connection {
     pub async fn create_pixmap(&self, depth: &Depth, drawable: impl Into<Drawable<'_>>, width: u16, height: u16) -> Result<Pixmap<'_>> {
         let pixmap = self.new_resource_id();
-        
-        send_request!(self, depth.depth, CreatePixmap {
+
+        send_request!(self, reserved depth.depth, CreatePixmap {
             pixmap: pixmap,
             drawable: drawable.into().handle(),
             width: width,
@@ -29,9 +28,12 @@ impl X11Connection {
 
 impl<'a> Pixmap<'a> {
     pub async fn free(self) -> Result<()> {
-        send_request!(self.connection, FreePixmap {
-            pixmap: self.handle,
-        });
+        send_request!(
+            self.connection,
+            FreePixmap {
+                pixmap: self.handle,
+            }
+        );
         Ok(())
     }
 }
@@ -42,6 +44,9 @@ impl<'a> Resource<'a> for Pixmap<'a> {
     }
 
     fn from_x11_handle(connection: &'a X11Connection, handle: u32) -> Self {
-        Self { connection, handle }
+        Self {
+            connection,
+            handle,
+        }
     }
 }

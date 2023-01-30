@@ -1,0 +1,140 @@
+
+type Range8 = container {
+    first: u8,
+    last: u8,
+};
+
+type Range16 = container {
+    first: u16,
+    last: u16,
+};
+
+type ExtRange = container {
+    major: Range8,
+    minor: Range16,
+};
+
+type Range = container {
+    core_requests: Range8,
+    core_replies: Range8,
+    ext_requests: ExtRange,
+    ext_replies: ExtRange,
+    delivered_events: Range8,
+    device_events: Range8,
+    errors: Range8,
+    client_started: bool,
+    client_died: bool,
+};
+
+type RecordErrorCode = enum u8 {
+    BadContext = 0,
+};
+
+type QueryVersionRequest = container {
+    major_version: u16,
+    minor_version: u16,
+};
+
+type QueryVersionResponse = container {
+    major_version: u16,
+    minor_version: u16,
+};
+
+type ElementHeader = bitfield u8 {
+    FromServerTime = 0x01,
+    FromClientTime,
+    FromClientSequence,
+};
+
+type CreateContextRequest = container {
+    context: u32,
+    element_header: ElementHeader,
+    .pad: 3,
+    num_client_specs: u32 = len(client_specs) :> u32,
+    num_ranges: u32 = len(ranges) :> u32,
+    client_specs: u32[num_client_specs],
+    ranges: Range[num_ranges],
+};
+
+type RegisterClientsRequest = container {
+    context: u32,
+    element_header: ElementHeader,
+    .pad: 3,
+    num_client_specs: u32 = len(client_specs) :> u32,
+    num_ranges: u32 = len(ranges) :> u32,
+    client_specs: u32[num_client_specs],
+    ranges: Range[num_ranges],
+};
+
+type UnregisterClientsRequest = container {
+    context: u32,
+    num_client_specs: u32 = len(client_specs) :> u32,
+    client_specs: u32[num_client_specs],
+};
+
+type GetContextRequest = container {
+    context: u32,
+};
+
+type ClientInfo = container {
+    client_resource: u32,
+    num_ranges: u32 = len(ranges) :> u32,
+    ranges: Range[num_ranges],
+};
+
+// reserved => enabled: bool
+type GetContextResponse = container {
+    context: u32,
+    element_header: ElementHeader,
+    .pad: 3,
+    num_intercepted_clients: u32 = len(intercepted_clients) :> u32,
+    intercepted_clients: ClientInfo[num_intercepted_clients],
+};
+
+type EnableContextRequest = container {
+    context: u32,
+};
+
+type ContextCategory = enum u8 {
+    FromServer = 0,
+    FromClient = 1,
+    ClientStarted = 2,
+    ClientDied = 3,
+    StartOfData = 4,
+    EndOfData = 5,
+};
+
+// reserved => category: ContextCategory
+type EnableContextResponse = container {
+    element_header: ElementHeader,
+    client_swapped: bool,
+    .pad: 2,
+    xid_base: u32,
+    server_time: u32,
+    rec_sequence_num: u32,
+    .pad: 8,
+    data: u8[..],
+};
+
+type DisableContextRequest = container {
+    context: u32,
+};
+
+type FreeContextRequest = container {
+    context: u32,
+};
+
+type XRecordOpcode = enum u8 {
+    QueryVersion = 0,
+    CreateContext,
+    RegisterClients,
+    UnregisterClients,
+    GetContext,
+    EnableContext,
+    DisableContext,
+    FreeContext,
+};
+
+type XRecordErrorCode = enum u8 {
+    RecordContext = 0
+};

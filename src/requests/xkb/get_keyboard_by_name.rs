@@ -1,9 +1,7 @@
 use super::*;
 
+pub use crate::coding::xkb::GBNDetail;
 use crate::coding::xkb::{GetKbdByNameRequest, GetKbdByNameResponse, String8};
-pub use crate::coding::xkb::{
-    GBNDetail,
-};
 
 #[derive(Clone, Debug)]
 pub struct Keyboard {
@@ -33,19 +31,42 @@ impl X11Connection {
         symbols_spec: impl AsRef<str>,
         geometry_spec: impl AsRef<str>,
     ) -> Result<Keyboard> {
-        let seq = send_request_xkb!(self, XKBOpcode::GetKbdByName, false, GetKbdByNameRequest {
-            device_spec: device.into(),
-            need: need,
-            want: want,
-            load: load,
-            keymaps_spec: String8 { string: keymaps_spec.as_ref().to_string(), len: 0 },
-            keycodes_spec: String8 { string: keycodes_spec.as_ref().to_string(), len: 0 },
-            types_spec: String8 { string: types_spec.as_ref().to_string(), len: 0 },
-            compat_map_spec: String8 { string: compat_map_spec.as_ref().to_string(), len: 0 },
-            symbols_spec: String8 { string: symbols_spec.as_ref().to_string(), len: 0 },
-            geometry_spec: String8 { string: geometry_spec.as_ref().to_string(), len: 0 },
-        });
-        let reply = receive_reply!(self, seq, GetKbdByNameResponse);
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::GetKbdByName,
+            GetKbdByNameResponse,
+            GetKbdByNameRequest {
+                device_spec: device.into(),
+                need: need,
+                want: want,
+                load: load,
+                keymaps_spec: String8 {
+                    string: keymaps_spec.as_ref().to_string(),
+                    len: 0
+                },
+                keycodes_spec: String8 {
+                    string: keycodes_spec.as_ref().to_string(),
+                    len: 0
+                },
+                types_spec: String8 {
+                    string: types_spec.as_ref().to_string(),
+                    len: 0
+                },
+                compat_map_spec: String8 {
+                    string: compat_map_spec.as_ref().to_string(),
+                    len: 0
+                },
+                symbols_spec: String8 {
+                    string: symbols_spec.as_ref().to_string(),
+                    len: 0
+                },
+                geometry_spec: String8 {
+                    string: geometry_spec.as_ref().to_string(),
+                    len: 0
+                },
+            }
+        )
+        .into_inner();
 
         Ok(Keyboard {
             min_keycode: reply.min_keycode,

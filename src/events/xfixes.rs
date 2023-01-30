@@ -1,11 +1,10 @@
-
-use anyhow::Result;
-use crate::{coding::xfixes::{self, XFEventData, XFEventCode}, net::X11Connection, requests::{Timestamp, Atom, Window}};
-pub use crate::coding::xfixes::{
-    SelectionEventType,
-    CursorNotifyType,
-    XFEventMask,
+pub use crate::coding::xfixes::{CursorNotifyType, SelectionEventType, XFEventMask};
+use crate::{
+    coding::xfixes::{self, XFEventCode, XFEventData},
+    net::X11Connection,
+    requests::{Atom, Timestamp, Window},
 };
+use anyhow::Result;
 
 #[derive(Clone, Debug)]
 pub enum XFEvent<'a> {
@@ -115,7 +114,7 @@ impl<'a> CursorNotifyEvent<'a> {
             window: self.window.handle,
             cursor_serial: self.cursor_serial,
             time: self.time.0,
-            name_atom: self.name.map(|x| x.handle).unwrap_or(0)
+            name_atom: self.name.map(|x| x.handle).unwrap_or(0),
         }
     }
 }

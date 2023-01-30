@@ -1,9 +1,10 @@
-
-use anyhow::Result;
-use crate::{coding::shape::{self, ShapeEventData, ShapeEventCode, ShapeKind}, net::X11Connection, requests::{Timestamp, Window}};
-pub use crate::coding::shape::{
-    ShapeEventMask,
+pub use crate::coding::shape::ShapeEventMask;
+use crate::{
+    coding::shape::{self, ShapeEventCode, ShapeEventData, ShapeKind},
+    net::X11Connection,
+    requests::{Timestamp, Window},
 };
+use anyhow::Result;
 
 #[derive(Clone, Debug)]
 pub enum ShapeEvent<'a> {

@@ -38,17 +38,29 @@ pub struct LedInfo {
 
 impl X11Connection {
     /// buttons is Some(start, length) or None for all
-    pub async fn xkb_get_device_info(&self, device: DeviceSpec, wanted: XIFeature, buttons: Option<(u8, u8)>, led_class: LedClass, led_id: ID) -> Result<DeviceInfo> {
-        let seq = send_request_xkb!(self, XKBOpcode::GetDeviceInfo, false, GetDeviceInfoRequest {
-            device_spec: device.into(),
-            wanted: wanted,
-            all_buttons: buttons.is_none(),
-            first_button: buttons.map(|x| x.0).unwrap_or(0),
-            num_buttons: buttons.map(|x| x.1).unwrap_or(0),
-            led_class: led_class,
-            led_id: led_id,
-        });
-        let reply = receive_reply!(self, seq, GetDeviceInfoResponse);
+    pub async fn xkb_get_device_info(
+        &self,
+        device: DeviceSpec,
+        wanted: XIFeature,
+        buttons: Option<(u8, u8)>,
+        led_class: LedClass,
+        led_id: ID,
+    ) -> Result<DeviceInfo> {
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::GetDeviceInfo,
+            GetDeviceInfoResponse,
+            GetDeviceInfoRequest {
+                device_spec: device.into(),
+                wanted: wanted,
+                all_buttons: buttons.is_none(),
+                first_button: buttons.map(|x| x.0).unwrap_or(0),
+                num_buttons: buttons.map(|x| x.1).unwrap_or(0),
+                led_class: led_class,
+                led_id: led_id,
+            }
+        )
+        .into_inner();
 
         Ok(DeviceInfo {
             present: reply.present,
@@ -88,17 +100,20 @@ impl X11Connection {
                                     None
                                 };
                                 if is_phys || state || name.is_some() || map.is_some() {
-                                    out.insert(bit, LedInfo {
-                                        is_phys,
-                                        state,
-                                        name,
-                                        map,
-                                    });
+                                    out.insert(
+                                        bit,
+                                        LedInfo {
+                                            is_phys,
+                                            state,
+                                            name,
+                                            map,
+                                        },
+                                    );
                                 }
                             }
-            
+
                             out
-                        }
+                        },
                     });
                 }
                 out

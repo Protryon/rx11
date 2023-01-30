@@ -15,3 +15,6 @@ pub use xrandr_proto::*;
 
 mod shape_proto;
 pub use shape_proto::*;
+
+mod xrecord_proto;
+pub use xrecord_proto::*;

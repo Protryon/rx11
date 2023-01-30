@@ -1,31 +1,18 @@
-
 use crate::coding::GenericEvent;
 use crate::events::XIEvent;
-use crate::{coding, events::XKBEvent};
 use crate::net::X11Connection;
 use crate::requests::*;
+use crate::{coding, events::XKBEvent};
 use anyhow::Result;
 use bitvec::order::Lsb0;
 use bitvec::prelude::BitVec;
 
 pub use crate::coding::x11::{
-    NotifyDetail,
-    NotifyFlags,
-    NotifyMode,
-    FocusDetail,
-    FocusMode,
-    VisibilityState,
-    CirculatePlace,
-    PropertyNotifyState,
-    ColormapNotifyState,
-    MappingNotifyRequest,
-    ConfigureWindowBitmask,
-    StackMode,
-    Keybutmask,
-    EventCode,
+    CirculatePlace, ColormapNotifyState, ConfigureWindowBitmask, EventCode, FocusDetail, FocusMode, Keybutmask, MappingNotifyRequest, NotifyDetail,
+    NotifyFlags, NotifyMode, PropertyNotifyState, StackMode, VisibilityState,
 };
 
-use super::{XFEvent, XREvent, ShapeEvent};
+use super::{ShapeEvent, XFEvent, XREvent};
 
 #[derive(Clone, Debug)]
 pub enum Event<'a> {
@@ -107,10 +94,33 @@ impl<'a> Event<'a> {
             Event::ColormapNotify(_) => EventCode::ColormapNotify as u8,
             Event::ClientMessage(_) => EventCode::ClientMessage as u8,
             Event::MappingNotify(_) => EventCode::MappingNotify as u8,
-            Event::XF(e) => e.code() as u8 + connection.get_ext_info(XFIXES_EXT_NAME).ok_or_else(|| anyhow!("missing xfixes extension while sending event"))?.event_start,
-            Event::XR(e) => e.code() as u8 + connection.get_ext_info(XRANDR_EXT_NAME).ok_or_else(|| anyhow!("missing xrandr extension while sending event"))?.event_start,
-            Event::Shape(e) => e.code() as u8 + connection.get_ext_info(SHAPE_EXT_NAME).ok_or_else(|| anyhow!("missing shape extension while sending event"))?.event_start,
-            Event::XKB(_) => connection.get_ext_info(XKB_EXT_NAME).ok_or_else(|| anyhow!("missing xkb extension while sending event"))?.event_start,
+            Event::XF(e) => {
+                e.code() as u8
+                    + connection
+                        .get_ext_info(XFIXES_EXT_NAME)
+                        .ok_or_else(|| anyhow!("missing xfixes extension while sending event"))?
+                        .event_start
+            }
+            Event::XR(e) => {
+                e.code() as u8
+                    + connection
+                        .get_ext_info(XRANDR_EXT_NAME)
+                        .ok_or_else(|| anyhow!("missing xrandr extension while sending event"))?
+                        .event_start
+            }
+            Event::Shape(e) => {
+                e.code() as u8
+                    + connection
+                        .get_ext_info(SHAPE_EXT_NAME)
+                        .ok_or_else(|| anyhow!("missing shape extension while sending event"))?
+                        .event_start
+            }
+            Event::XKB(_) => {
+                connection
+                    .get_ext_info(XKB_EXT_NAME)
+                    .ok_or_else(|| anyhow!("missing xkb extension while sending event"))?
+                    .event_start
+            }
             Event::XI(_) => EventCode::Generic as u8,
             Event::UnknownCore(code, _) => *code,
         })
@@ -153,35 +163,37 @@ impl<'a> Event<'a> {
             ClientMessage(e) => Event::ClientMessage(ClientMessageEvent::from_protocol(connection, e).await?),
             MappingNotify(e) => Event::MappingNotify(MappingNotifyEvent::from_protocol(connection, e)),
             Generic(e) => {
-                let extension = connection.get_ext_info_by_opcode(e.extension_opcode)
+                let extension = connection
+                    .get_ext_info_by_opcode(e.extension_opcode)
                     .ok_or_else(|| anyhow!("received generic event for unknown extension"))?;
                 match &**extension.key() {
                     crate::requests::XINPUT_EXT_NAME => {
                         return Ok(Event::XI(XIEvent::from_protocol(connection, e.evtype, e.data).await?));
-                    },
+                    }
                     _ => bail!("unimplemented event for extension {}", extension.key()),
                 }
-            },
+            }
             UnknownCore(e) => Event::UnknownCore(code, e.into()),
             Ext(e) => {
-                let extension = connection.get_ext_info_by_event_code(code)
+                let extension = connection
+                    .get_ext_info_by_event_code(code)
                     .ok_or_else(|| anyhow!("received ext event for unknown extension"))?;
                 match &**extension.key() {
                     crate::requests::XKB_EXT_NAME => {
                         return Ok(Event::XKB(XKBEvent::from_protocol(connection, e).await?));
-                    },
+                    }
                     crate::requests::XFIXES_EXT_NAME => {
                         return Ok(Event::XF(XFEvent::from_protocol(connection, e, code - extension.event_start).await?));
-                    },
+                    }
                     crate::requests::XRANDR_EXT_NAME => {
                         return Ok(Event::XR(XREvent::from_protocol(connection, e, code - extension.event_start).await?));
-                    },
+                    }
                     crate::requests::SHAPE_EXT_NAME => {
                         return Ok(Event::Shape(ShapeEvent::from_protocol(connection, e, code - extension.event_start).await?));
-                    },
+                    }
                     _ => bail!("unimplemented event for extension {}", extension.key()),
                 }
-            },
+            }
         })
     }
 
@@ -227,41 +239,44 @@ impl<'a> Event<'a> {
                 let mut data_raw = vec![];
                 event.encode_sync(&mut data_raw)?;
                 Ext(data_raw)
-            },
+            }
             Event::XF(e) => {
                 let code = e.code();
                 let event = e.to_protocol();
                 let mut data_raw = vec![];
                 event.encode_sync(&mut data_raw, code)?;
                 Ext(data_raw)
-            },
+            }
             Event::XR(e) => {
                 let code = e.code();
                 let event = e.to_protocol();
                 let mut data_raw = vec![];
                 event.encode_sync(&mut data_raw, code)?;
                 Ext(data_raw)
-            },
+            }
             Event::Shape(e) => {
                 let code = e.code();
                 let event = e.to_protocol();
                 let mut data_raw = vec![];
                 event.encode_sync(&mut data_raw, code)?;
                 Ext(data_raw)
-            },
+            }
             Event::XI(e) => {
                 let event = e.to_protocol();
                 let mut data_raw = vec![];
                 event.encode_sync(&mut data_raw, event.code())?;
 
                 Generic(GenericEvent {
-                    extension_opcode: connection.get_ext_info(XINPUT_EXT_NAME).ok_or_else(|| anyhow!("missing xi2 extension when sending event"))?.major_opcode,
+                    extension_opcode: connection
+                        .get_ext_info(XINPUT_EXT_NAME)
+                        .ok_or_else(|| anyhow!("missing xi2 extension when sending event"))?
+                        .major_opcode,
                     sequence_number: 0,
                     length: 0,
                     evtype: event.code() as u16,
                     data: data_raw,
                 })
-            },
+            }
             Event::UnknownCore(_, e) => UnknownCore(e.into()),
         };
         Ok((code, event))
@@ -285,17 +300,25 @@ pub struct KeyEvent<'a> {
 }
 
 impl<'a> KeyEvent<'a> {
-
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::KeyEvent) -> Self {
         Self {
             keycode: from.keycode,
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            root_window: Window { handle: from.root_window, connection },
-            event_window: Window { handle: from.event_window, connection },
+            root_window: Window {
+                handle: from.root_window,
+                connection,
+            },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
             child_window: match from.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection }),
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: from.root_x,
             root_y: from.root_y,
@@ -341,17 +364,25 @@ pub struct ButtonEvent<'a> {
 }
 
 impl<'a> ButtonEvent<'a> {
-
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::ButtonEvent) -> Self {
         Self {
             button: from.button,
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            root_window: Window { handle: from.root_window, connection },
-            event_window: Window { handle: from.event_window, connection },
+            root_window: Window {
+                handle: from.root_window,
+                connection,
+            },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
             child_window: match from.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection }),
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: from.root_x,
             root_y: from.root_y,
@@ -402,11 +433,20 @@ impl<'a> MotionNotifyEvent<'a> {
             is_hint: from.is_hint,
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            root_window: Window { handle: from.root_window, connection },
-            event_window: Window { handle: from.event_window, connection },
+            root_window: Window {
+                handle: from.root_window,
+                connection,
+            },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
             child_window: match from.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection }),
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: from.root_x,
             root_y: from.root_y,
@@ -458,11 +498,20 @@ impl<'a> NotifyEvent<'a> {
             detail: from.detail,
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            root_window: Window { handle: from.root_window, connection },
-            event_window: Window { handle: from.event_window, connection },
+            root_window: Window {
+                handle: from.root_window,
+                connection,
+            },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
             child_window: match from.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection }),
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             root_x: from.root_x,
             root_y: from.root_y,
@@ -506,7 +555,10 @@ impl<'a> FocusEvent<'a> {
         Self {
             detail: from.detail,
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
             mode: from.mode,
         }
     }
@@ -555,7 +607,10 @@ impl<'a> ExposeEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::ExposeEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            window: Window { handle: from.window, connection },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             x: from.x,
             y: from.y,
             width: from.width,
@@ -594,7 +649,10 @@ impl<'a> GraphicsExposureEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::GraphicsExposureEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            drawable: Drawable::Raw(RawDrawable { handle: from.drawable, connection }),
+            drawable: Drawable::Raw(RawDrawable {
+                handle: from.drawable,
+                connection,
+            }),
             x: from.x,
             y: from.y,
             width: from.width,
@@ -632,7 +690,10 @@ impl<'a> NoExposureEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::NoExposureEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            drawable: Drawable::Raw(RawDrawable { handle: from.drawable, connection }),
+            drawable: Drawable::Raw(RawDrawable {
+                handle: from.drawable,
+                connection,
+            }),
             minor_opcode: from.minor_opcode,
             major_opcode: from.major_opcode,
         }
@@ -659,7 +720,10 @@ impl<'a> VisibilityNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::VisibilityNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            window: Window { handle: from.window, connection },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             state: from.state,
         }
     }
@@ -690,8 +754,14 @@ impl<'a> CreateNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::CreateNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            parent_window: Window { handle: from.parent_window, connection },
-            window: Window { handle: from.window, connection },
+            parent_window: Window {
+                handle: from.parent_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             x: from.x,
             y: from.y,
             width: from.width,
@@ -727,8 +797,14 @@ impl<'a> DestroyNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::DestroyNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
         }
     }
 
@@ -753,8 +829,14 @@ impl<'a> UnmapNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::UnmapNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             from_configure: from.from_configure,
         }
     }
@@ -781,8 +863,14 @@ impl<'a> MapNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::MapNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             override_redirect: from.override_redirect,
         }
     }
@@ -808,8 +896,14 @@ impl<'a> MapRequestEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::MapRequestEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
         }
     }
 
@@ -837,9 +931,18 @@ impl<'a> ReparentNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::ReparentNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
-            parent_window: Window { handle: from.parent_window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
+            parent_window: Window {
+                handle: from.parent_window,
+                connection,
+            },
             x: from.x,
             y: from.y,
             override_redirect: from.override_redirect,
@@ -877,11 +980,20 @@ impl<'a> ConfigureNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::ConfigureNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             above_sibling: match from.above_sibling {
                 0 => None,
-                handle => Some(Window { handle, connection }),
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             x: from.x,
             y: from.y,
@@ -928,11 +1040,20 @@ impl<'a> ConfigureRequestEvent<'a> {
         Self {
             stack_mode: from.stack_mode,
             sequence_number: from.sequence_number,
-            parent_window: Window { handle: from.parent_window, connection },
-            window: Window { handle: from.window, connection },
+            parent_window: Window {
+                handle: from.parent_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             sibling: match from.sibling {
                 0 => None,
-                handle => Some(Window { handle, connection }),
+                handle => Some(Window {
+                    handle,
+                    connection,
+                }),
             },
             x: from.x,
             y: from.y,
@@ -973,8 +1094,14 @@ impl<'a> GravityNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::GravityNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             x: from.x,
             y: from.y,
         }
@@ -1003,7 +1130,10 @@ impl<'a> ResizeRequestEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::ResizeRequestEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            window: Window { handle: from.window, connection },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             width: from.width,
             height: from.height,
         }
@@ -1031,8 +1161,14 @@ impl<'a> CirculateNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::CirculateNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            event_window: Window { handle: from.event_window, connection },
-            window: Window { handle: from.window, connection },
+            event_window: Window {
+                handle: from.event_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             place: from.place,
         }
     }
@@ -1059,8 +1195,14 @@ impl<'a> CirculateRequestEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::CirculateRequestEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            parent_window: Window { handle: from.parent_window, connection },
-            window: Window { handle: from.window, connection },
+            parent_window: Window {
+                handle: from.parent_window,
+                connection,
+            },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             place: from.place,
         }
     }
@@ -1088,7 +1230,10 @@ impl<'a> PropertyNotifyEvent<'a> {
     async fn from_protocol(connection: &'a X11Connection, from: coding::x11::PropertyNotifyEvent) -> Result<PropertyNotifyEvent<'a>> {
         Ok(Self {
             sequence_number: from.sequence_number,
-            window: Window { handle: from.window, connection },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             name: connection.get_atom_name(from.name_atom).await?,
             time: Timestamp(from.time),
             state: from.state,
@@ -1119,7 +1264,10 @@ impl<'a> SelectionClearEvent<'a> {
         Ok(Self {
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            owner_window: Window { handle: from.owner_window, connection },
+            owner_window: Window {
+                handle: from.owner_window,
+                connection,
+            },
             selection: connection.get_atom_name(from.selection_atom).await?,
         })
     }
@@ -1150,14 +1298,20 @@ impl<'a> SelectionRequestEvent<'a> {
         Ok(Self {
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            owner_window: Window { handle: from.owner_window, connection },
-            requestor_window: Window { handle: from.requestor_window, connection },
+            owner_window: Window {
+                handle: from.owner_window,
+                connection,
+            },
+            requestor_window: Window {
+                handle: from.requestor_window,
+                connection,
+            },
             selection: connection.get_atom_name(from.selection_atom).await?,
             target: connection.get_atom_name(from.target_atom).await?,
             property: match from.property_atom {
                 0 => None,
-                atom => Some(connection.get_atom_name(atom).await?)
-            }
+                atom => Some(connection.get_atom_name(atom).await?),
+            },
         })
     }
 
@@ -1189,13 +1343,16 @@ impl<'a> SelectionNotifyEvent<'a> {
         Ok(Self {
             sequence_number: from.sequence_number,
             time: Timestamp(from.time),
-            requestor_window: Window { handle: from.requestor_window, connection },
+            requestor_window: Window {
+                handle: from.requestor_window,
+                connection,
+            },
             selection: connection.get_atom_name(from.selection_atom).await?,
             target: connection.get_atom_name(from.target_atom).await?,
             property: match from.property_atom {
                 0 => None,
-                atom => Some(connection.get_atom_name(atom).await?)
-            }
+                atom => Some(connection.get_atom_name(atom).await?),
+            },
         })
     }
 
@@ -1224,10 +1381,16 @@ impl<'a> ColormapNotifyEvent<'a> {
     fn from_protocol(connection: &'a X11Connection, from: coding::x11::ColormapNotifyEvent) -> Self {
         Self {
             sequence_number: from.sequence_number,
-            window: Window { handle: from.window, connection },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             colormap: match from.colormap {
                 0 => None,
-                handle => Some(Colormap { handle, connection }),
+                handle => Some(Colormap {
+                    handle,
+                    connection,
+                }),
             },
             is_new: from.is_new,
             state: from.state,
@@ -1259,7 +1422,10 @@ impl<'a> ClientMessageEvent<'a> {
         Ok(Self {
             format: from.format,
             sequence_number: from.sequence_number,
-            window: Window { handle: from.window, connection },
+            window: Window {
+                handle: from.window,
+                connection,
+            },
             type_: connection.get_atom_name(from.type_atom).await?,
             data: from.data,
         })

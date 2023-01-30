@@ -1,5 +1,7 @@
-
-use crate::{net::ExtInfo, coding::xinput2::{XIQueryVersionRequest, XIQueryVersionResponse}};
+use crate::{
+    coding::xinput2::{XIQueryVersionRequest, XIQueryVersionResponse},
+    net::{ExtInfo, Extension},
+};
 
 use super::*;
 
@@ -8,19 +10,28 @@ impl X11Connection {
         // query_extension
         let queried = self.query_extension(XINPUT_EXT_NAME).await?;
         ensure!(queried.present, "xinput2 missing on x11 server");
-        self.0.registered_extensions.insert(XINPUT_EXT_NAME.to_string(), ExtInfo {
-            major_opcode: queried.major_opcode,
-            event_start: queried.first_event,
-            error_start: queried.first_error,
-            event_count: 0,
-        });
+        self.0.registered_extensions.insert(
+            XINPUT_EXT_NAME.to_string(),
+            ExtInfo {
+                extension: Extension::XInput,
+                major_opcode: queried.major_opcode,
+                event_start: queried.first_event,
+                error_start: queried.first_error,
+                event_count: 0,
+            },
+        );
 
         // enable extension
-        let seq = send_request_ext!(self, queried.major_opcode, XIOpcode::XIQueryVersion, false, XIQueryVersionRequest {
-            major_version: 2,
-            minor_version: 3,
-        });
-        let reply = receive_reply!(self, seq, XIQueryVersionResponse);
+        let reply = send_request_ext!(
+            self,
+            queried.major_opcode,
+            XIOpcode::XIQueryVersion,
+            XIQueryVersionResponse,
+            XIQueryVersionRequest {
+                major_version: 2,
+                minor_version: 3,
+            }
+        );
         if reply.major_version != 2 {
             bail!("unsupported xinput version on server: {}.{}", reply.major_version, reply.minor_version);
         }

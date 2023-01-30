@@ -1,4 +1,4 @@
-use bitvec::{prelude::BitVec, order::Lsb0};
+use bitvec::{order::Lsb0, prelude::BitVec};
 
 use crate::coding::xinput2::{self, DeviceClassData, DeviceClassType};
 
@@ -55,10 +55,15 @@ impl DeviceClass {
 
         for class in classes {
             match class.data {
-                DeviceClassData::Key { keys: class_keys, .. } => {
-                    keys = class_keys
-                },
-                DeviceClassData::Button { num_buttons, state, label_atoms } => {
+                DeviceClassData::Key {
+                    keys: class_keys,
+                    ..
+                } => keys = class_keys,
+                DeviceClassData::Button {
+                    num_buttons,
+                    state,
+                    label_atoms,
+                } => {
                     let state = BitVec::<u32, Lsb0>::from_vec(state);
                     for i in 0..num_buttons {
                         buttons.push(DeviceButton {
@@ -68,8 +73,16 @@ impl DeviceClass {
                             is_down: state[i as usize],
                         });
                     }
-                },
-                DeviceClassData::Valuator { number, label_atom, min, max, value, resolution, mode } => {
+                }
+                DeviceClassData::Valuator {
+                    number,
+                    label_atom,
+                    min,
+                    max,
+                    value,
+                    resolution,
+                    mode,
+                } => {
                     valuators.push(DeviceValuator {
                         number,
                         label: connection.get_atom_name(label_atom).await?,
@@ -79,22 +92,30 @@ impl DeviceClass {
                         resolution,
                         mode,
                     });
-                },
-                DeviceClassData::Scroll { number, scroll_type, flags, increment } => {
+                }
+                DeviceClassData::Scroll {
+                    number,
+                    scroll_type,
+                    flags,
+                    increment,
+                } => {
                     scrolls.push(DeviceScroll {
                         number,
                         scroll_type,
                         flags,
                         increment: increment.into(),
                     });
-                },
-                DeviceClassData::Touch { mode, num_touches } => {
+                }
+                DeviceClassData::Touch {
+                    mode,
+                    num_touches,
+                } => {
                     touchs.push(DeviceTouch {
                         mode,
                         num_touches,
                     });
-                },
-                DeviceClassData::Unknown(_) => {},
+                }
+                DeviceClassData::Unknown(_) => {}
             }
         }
         Ok(Self {

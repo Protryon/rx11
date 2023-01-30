@@ -3,9 +3,13 @@ use std::ops::BitOr;
 use tokio::sync::broadcast::error::RecvError;
 
 use super::*;
-use crate::{coding::{xkb::XKBEventMask, xinput2::XIEventMask, xfixes::XFEventMask, xrandr::XREventMask, shape::ShapeEventMask}, requests::{XINPUT_EXT_NAME, XKB_EXT_NAME, XFIXES_EXT_NAME, XRANDR_EXT_NAME, SHAPE_EXT_NAME}, events::Event};
-pub(crate) use crate::coding::Event as RawEvent;
 pub use crate::coding::x11::X11EventMask;
+pub(crate) use crate::coding::Event as RawEvent;
+use crate::{
+    coding::{shape::ShapeEventMask, xfixes::XFEventMask, xinput2::XIEventMask, xkb::XKBEventMask, xrandr::XREventMask},
+    events::Event,
+    requests::{SHAPE_EXT_NAME, XFIXES_EXT_NAME, XINPUT_EXT_NAME, XKB_EXT_NAME, XRANDR_EXT_NAME},
+};
 
 type RawEventData = (u8, RawEvent);
 
@@ -241,13 +245,11 @@ impl<'a> EventReceiver<'a> {
 }
 
 impl X11Connection {
-
-    pub fn events(&self) -> EventReceiver<'_> {
+    pub fn events<'a>(&'a self) -> EventReceiver<'a> {
         EventReceiver {
             connection: self,
             receiver: self.0.events_sender.subscribe(),
-            filter: EventFilter::ALL
+            filter: EventFilter::ALL,
         }
     }
-
 }

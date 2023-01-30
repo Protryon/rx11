@@ -1,12 +1,6 @@
 use super::*;
 
-pub use crate::coding::{
-    PointerMode,
-    PointerEventMask,
-    GrabStatus,
-    Keymask,
-    AllowEventsMode,
-};
+pub use crate::coding::{AllowEventsMode, GrabStatus, Keymask, PointerEventMask, PointerMode};
 
 #[derive(Clone, Debug)]
 pub struct GrabPointerParams<'a> {
@@ -54,7 +48,7 @@ pub struct GrabKeyParams<'a> {
 
 impl X11Connection {
     pub async fn legacy_grab_pointer(&self, params: GrabPointerParams<'_>) -> Result<GrabStatus> {
-        let seq = send_request!(self, params.owner_events as u8, GrabPointer {
+        let reply = send_request!(self, reserved params.owner_events as u8, GrabPointerReply, GrabPointer {
             grab_window: params.grab_window.handle,
             event_mask: params.event_mask,
             pointer_mode: params.pointer_mode,
@@ -63,19 +57,21 @@ impl X11Connection {
             cursor: params.cursor.map(|x| x.handle).unwrap_or(0),
             time: params.time.0,
         });
-        let (_, status) = receive_reply!(self, seq, GrabPointerReply, fetched);
-        Ok(GrabStatus::decode_sync(&mut &[status][..])?)
+        Ok(GrabStatus::decode_sync(&mut &[reply.reserved][..])?)
     }
 
     pub async fn legacy_ungrab_pointer(&self, time: Timestamp) -> Result<()> {
-        send_request!(self, UngrabPointer {
-            time: time.0,
-        });
+        send_request!(
+            self,
+            UngrabPointer {
+                time: time.0,
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_grab_button(&self, params: GrabButtonParams<'_>) -> Result<()> {
-        send_request!(self, params.owner_events as u8, GrabButton {
+        send_request!(self, reserved params.owner_events as u8, GrabButton {
             grab_window: params.grab_window.handle,
             event_mask: params.event_mask,
             pointer_mode: params.pointer_mode,
@@ -89,7 +85,7 @@ impl X11Connection {
     }
 
     pub async fn legacy_ungrab_button(&self, window: Window<'_>, keymask: Keymask, button: Option<u8>) -> Result<()> {
-        send_request!(self, button.unwrap_or(0), UngrabButton {
+        send_request!(self, reserved button.unwrap_or(0), UngrabButton {
             grab_window: window.handle,
             keymask: keymask,
         });
@@ -97,34 +93,39 @@ impl X11Connection {
     }
 
     pub async fn legacy_change_active_pointer_grab(&self, cursor: Option<Cursor<'_>>, time: Timestamp, event_mask: PointerEventMask) -> Result<()> {
-        send_request!(self, ChangeActivePointerGrab {
-            cursor: cursor.map(|x| x.handle).unwrap_or(0),
-            time: time.0,
-            event_mask: event_mask,
-        });
+        send_request!(
+            self,
+            ChangeActivePointerGrab {
+                cursor: cursor.map(|x| x.handle).unwrap_or(0),
+                time: time.0,
+                event_mask: event_mask,
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_grab_keyboard(&self, params: GrabKeyboardParams<'_>) -> Result<GrabStatus> {
-        let seq = send_request!(self, params.owner_events as u8, GrabKeyboard {
+        let reply = send_request!(self, reserved params.owner_events as u8, GrabPointerReply, GrabKeyboard {
             grab_window: params.grab_window.handle,
             time: params.time.0,
             pointer_mode: params.pointer_mode,
             keyboard_mode: params.keyboard_mode,
         });
-        let (_, status) = receive_reply!(self, seq, GrabPointerReply, fetched);
-        Ok(GrabStatus::decode_sync(&mut &[status][..])?)
+        Ok(GrabStatus::decode_sync(&mut &[reply.reserved][..])?)
     }
 
     pub async fn legacy_ungrab_keyboard(&self, time: Timestamp) -> Result<()> {
-        send_request!(self, UngrabKeyboard {
-            time: time.0,
-        });
+        send_request!(
+            self,
+            UngrabKeyboard {
+                time: time.0,
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_grab_key(&self, params: GrabKeyParams<'_>) -> Result<()> {
-        send_request!(self, params.owner_events as u8, GrabKey {
+        send_request!(self, reserved params.owner_events as u8, GrabKey {
             grab_window: params.grab_window.handle,
             keymask: params.keymask,
             keycode: params.keycode.unwrap_or(0),
@@ -135,7 +136,7 @@ impl X11Connection {
     }
 
     pub async fn legacy_ungrab_key(&self, grab_window: Window<'_>, keymask: Keymask, keycode: Option<u8>) -> Result<()> {
-        send_request!(self, keycode.unwrap_or(0), UngrabKey {
+        send_request!(self, reserved keycode.unwrap_or(0), UngrabKey {
             grab_window: grab_window.handle,
             keymask: keymask,
         });
@@ -143,21 +144,19 @@ impl X11Connection {
     }
 
     pub async fn legacy_allow_events(&self, mode: AllowEventsMode, time: Timestamp) -> Result<()> {
-        send_request!(self, mode as u8, AllowEvents {
+        send_request!(self, reserved mode as u8, AllowEvents {
             time: time.0,
         });
         Ok(())
     }
-    
+
     pub async fn grab_server(&self) -> Result<()> {
-        send_request!(self, GrabServer {
-        });
+        send_request!(self, GrabServer {});
         Ok(())
     }
 
     pub async fn ungrab_server(&self) -> Result<()> {
-        send_request!(self, UngrabServer {
-        });
+        send_request!(self, UngrabServer {});
         Ok(())
     }
 }

@@ -1,4 +1,7 @@
-use crate::coding::{xrandr::{GetMonitorsRequest, GetMonitorsResponse, SetMonitorRequest, DeleteMonitorRequest}, self};
+use crate::coding::{
+    self,
+    xrandr::{DeleteMonitorRequest, GetMonitorsRequest, GetMonitorsResponse, SetMonitorRequest},
+};
 
 use super::*;
 
@@ -13,7 +16,7 @@ pub struct MonitorInfo<'a> {
     pub height: u16,
     pub width_mm: u32,
     pub height_mm: u32,
-    pub outputs: Vec<Output<'a>>
+    pub outputs: Vec<Output<'a>>,
 }
 
 impl<'a> MonitorInfo<'a> {
@@ -28,7 +31,14 @@ impl<'a> MonitorInfo<'a> {
             height: info.height,
             width_mm: info.width_mm,
             height_mm: info.height_mm,
-            outputs: info.outputs.into_iter().map(|handle| Output { handle, connection }).collect(),
+            outputs: info
+                .outputs
+                .into_iter()
+                .map(|handle| Output {
+                    handle,
+                    connection,
+                })
+                .collect(),
         })
     }
 
@@ -51,21 +61,23 @@ impl<'a> MonitorInfo<'a> {
 
 impl<'a> Window<'a> {
     async fn get_monitors_internal(self, get_active: bool) -> Result<(Timestamp, Vec<MonitorInfo<'a>>)> {
-        let seq = send_request_xrandr!(self.connection, XROpcode::GetMonitors, false, GetMonitorsRequest {
-            window: self.handle,
-            get_active: get_active,
-        });
-        let reply = receive_reply!(self.connection, seq, GetMonitorsResponse);
+        let reply = send_request_xrandr!(
+            self.connection,
+            XROpcode::GetMonitors,
+            GetMonitorsResponse,
+            GetMonitorsRequest {
+                window: self.handle,
+                get_active: get_active,
+            }
+        )
+        .into_inner();
 
         let mut out = vec![];
         for info in reply.monitors {
             out.push(MonitorInfo::from_proto(self.connection, info).await?);
         }
 
-        Ok((
-            Timestamp(reply.time),
-            out,
-        ))
+        Ok((Timestamp(reply.time), out))
     }
 
     pub async fn get_monitors(self) -> Result<(Timestamp, Vec<MonitorInfo<'a>>)> {
@@ -77,19 +89,27 @@ impl<'a> Window<'a> {
     }
 
     pub async fn set_monitor(self, info: MonitorInfo<'_>) -> Result<()> {
-        send_request_xrandr!(self.connection, XROpcode::SetMonitor, true, SetMonitorRequest {
-            window: self.handle,
-            info: info.into_proto(),
-        });
+        send_request_xrandr!(
+            self.connection,
+            XROpcode::SetMonitor,
+            SetMonitorRequest {
+                window: self.handle,
+                info: info.into_proto(),
+            }
+        );
 
         Ok(())
     }
 
     pub async fn delete_monitor(self, name: Atom) -> Result<()> {
-        send_request_xrandr!(self.connection, XROpcode::DeleteMonitor, true, DeleteMonitorRequest {
-            window: self.handle,
-            name_atom: name.handle,
-        });
+        send_request_xrandr!(
+            self.connection,
+            XROpcode::DeleteMonitor,
+            DeleteMonitorRequest {
+                window: self.handle,
+                name_atom: name.handle,
+            }
+        );
 
         Ok(())
     }

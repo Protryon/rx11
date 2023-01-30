@@ -2,16 +2,8 @@ use std::collections::BTreeMap;
 
 use super::*;
 
-use crate::coding::xkb::{GetGeometryRequest, GetGeometryResponse, DoodadType};
-pub use crate::coding::xkb::{
-    Outline,
-    Point,
-    Row,
-    Overlay,
-    OverlayRow,
-    Key,
-    OverlayKey,
-};
+use crate::coding::xkb::{DoodadType, GetGeometryRequest, GetGeometryResponse};
+pub use crate::coding::xkb::{Key, Outline, Overlay, OverlayKey, OverlayRow, Point, Row};
 
 #[derive(Debug, Clone)]
 pub struct GeometryData {
@@ -91,7 +83,6 @@ pub struct Doodad {
 }
 
 impl X11Connection {
-
     async fn convert_doodad(&self, from: crate::coding::xkb::Doodad) -> Result<Doodad> {
         use crate::coding::xkb::DoodadData::*;
         Ok(Doodad {
@@ -101,7 +92,10 @@ impl X11Connection {
             left: from.left,
             angle: from.angle,
             data: match from.data {
-                Shape { color_index, shape_index } => match from.type_ {
+                Shape {
+                    color_index,
+                    shape_index,
+                } => match from.type_ {
                     DoodadType::Outline => DoodadData::Outline {
                         color_index,
                         shape_index,
@@ -112,19 +106,33 @@ impl X11Connection {
                     },
                     _ => unimplemented!(),
                 },
-                Text { width, height, color_index, text, font } => DoodadData::Text {
+                Text {
+                    width,
+                    height,
+                    color_index,
+                    text,
+                    font,
+                } => DoodadData::Text {
                     width,
                     height,
                     color_index,
                     text: text.string,
                     font: font.string,
                 },
-                Indicator { shape_index, on_color_index, off_color_index } => DoodadData::Indicator {
+                Indicator {
+                    shape_index,
+                    on_color_index,
+                    off_color_index,
+                } => DoodadData::Indicator {
                     shape_index,
                     on_color_index,
                     off_color_index,
                 },
-                Logo { color_index, shape_index, logo_name } => DoodadData::Logo {
+                Logo {
+                    color_index,
+                    shape_index,
+                    logo_name,
+                } => DoodadData::Logo {
                     color_index,
                     shape_index,
                     name: logo_name.string,
@@ -191,15 +199,19 @@ impl X11Connection {
     }
 
     pub async fn xkb_get_geometry(&self, device: DeviceSpec, name: Atom) -> Result<GeometryData> {
-        let seq = send_request_xkb!(self, XKBOpcode::GetGeometry, false, GetGeometryRequest {
-            device_spec: device.into(),
-            name_atom: name.handle,
-        });
-        let reply = receive_reply!(self, seq, GetGeometryResponse);
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::GetGeometry,
+            GetGeometryResponse,
+            GetGeometryRequest {
+                device_spec: device.into(),
+                name_atom: name.handle,
+            }
+        )
+        .into_inner();
 
         self.xkb_parse_geometry(reply).await
     }
 
     //TODO: pub async fn xkb_set_geometry(&self, device: DeviceSpec) -> Result<()>;
-
 }

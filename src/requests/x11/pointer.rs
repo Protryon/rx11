@@ -1,9 +1,6 @@
 use super::*;
 
-pub use crate::coding::x11::{
-    Keybutmask,
-    InputFocusRevert,
-};
+pub use crate::coding::x11::{InputFocusRevert, Keybutmask};
 
 #[derive(Clone, Debug)]
 pub struct QueryPointerResponse<'a> {
@@ -36,22 +33,33 @@ pub struct TranslatedCoordinates<'a> {
 pub enum InputFocusWindow<'a> {
     None,
     PointerRoot,
-    Window(Window<'a>)
+    Window(Window<'a>),
 }
 
 impl<'a> Window<'a> {
     pub async fn legacy_query_pointer(self) -> Result<QueryPointerResponse<'a>> {
-        let seq = send_request!(self.connection, QueryPointer {
-            window: self.handle,
-        });
-        let (reply, same_screen) = receive_reply!(self.connection, seq, QueryPointerReply, fetched);
+        let reply = send_request!(
+            self.connection,
+            QueryPointerReply,
+            QueryPointer {
+                window: self.handle,
+            }
+        );
+        let same_screen = reply.reserved;
+        let reply = reply.into_inner();
 
         Ok(QueryPointerResponse {
             same_screen: same_screen != 0,
-            root: Window { handle: reply.root_window, connection: self.connection },
+            root: Window {
+                handle: reply.root_window,
+                connection: self.connection,
+            },
             child: match reply.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection: self.connection }),
+                handle => Some(Window {
+                    handle,
+                    connection: self.connection,
+                }),
             },
             root_x: reply.root_x,
             root_y: reply.root_y,
@@ -62,18 +70,26 @@ impl<'a> Window<'a> {
     }
 
     pub async fn legacy_get_motion_events(self, start: Timestamp, stop: Timestamp) -> Result<Vec<MotionEvent>> {
-        let seq = send_request!(self.connection, GetMotionEvents {
-            window: self.handle,
-            start_time: start.0,
-            stop_time: stop.0,
-        });
-        let reply = receive_reply!(self.connection, seq, GetMotionEventsReply);
+        let reply = send_request!(
+            self.connection,
+            GetMotionEventsReply,
+            GetMotionEvents {
+                window: self.handle,
+                start_time: start.0,
+                stop_time: stop.0,
+            }
+        );
 
-        Ok(reply.events.into_iter().map(|x| MotionEvent {
-            time: Timestamp(x.time),
-            x: x.x,
-            y: x.y,
-        }).collect())
+        Ok(reply
+            .into_inner()
+            .events
+            .into_iter()
+            .map(|x| MotionEvent {
+                time: Timestamp(x.time),
+                x: x.x,
+                y: x.y,
+            })
+            .collect())
     }
 }
 
@@ -91,32 +107,39 @@ pub enum LegacyPointerSource<'a> {
 
 #[derive(Clone, Debug)]
 pub enum LegacyPointerDestination<'a> {
-    Relative {
-        x: i16,
-        y: i16,
-    },
-    Absolute {
-        window: Window<'a>,
-        x: i16,
-        y: i16,
-    },
+    Relative { x: i16, y: i16 },
+    Absolute { window: Window<'a>, x: i16, y: i16 },
 }
 
 impl X11Connection {
-    pub async fn legacy_translate_coordinates(&self, src_window: Window<'_>, dst_window: Window<'_>, src_x: i16, src_y: i16) -> Result<TranslatedCoordinates<'_>> {
-        let seq = send_request!(self, TranslateCoordinates {
-            src_window: src_window.handle,
-            dst_window: dst_window.handle,
-            src_x: src_x,
-            src_y: src_y,
-        });
-        let (reply, same_screen) = receive_reply!(self, seq, TranslateCoordinatesReply, fetched);
+    pub async fn legacy_translate_coordinates(
+        &self,
+        src_window: Window<'_>,
+        dst_window: Window<'_>,
+        src_x: i16,
+        src_y: i16,
+    ) -> Result<TranslatedCoordinates<'_>> {
+        let reply = send_request!(
+            self,
+            TranslateCoordinatesReply,
+            TranslateCoordinates {
+                src_window: src_window.handle,
+                dst_window: dst_window.handle,
+                src_x: src_x,
+                src_y: src_y,
+            }
+        );
+        let same_screen = reply.reserved;
+        let reply = reply.into_inner();
 
         Ok(TranslatedCoordinates {
             same_screen: same_screen != 0,
             child: match reply.child_window {
                 0 => None,
-                handle => Some(Window { handle, connection: self }),
+                handle => Some(Window {
+                    handle,
+                    connection: self,
+                }),
             },
             dst_x: reply.dst_x,
             dst_y: reply.dst_y,
@@ -124,45 +147,80 @@ impl X11Connection {
     }
 
     pub async fn legacy_warp_pointer(&self, source: LegacyPointerSource<'_>, dest: LegacyPointerDestination<'_>) -> Result<()> {
-        send_request!(self, WarpPointer {
-            src_window: match source {
-                LegacyPointerSource::Anywhere => 0,
-                LegacyPointerSource::Window { window, .. } => window.handle,
-            },
-            src_x: match source {
-                LegacyPointerSource::Anywhere => 0,
-                LegacyPointerSource::Window { src_x, .. } => src_x,
-            },
-            src_y: match source {
-                LegacyPointerSource::Anywhere => 0,
-                LegacyPointerSource::Window { src_y, .. } => src_y,
-            },
-            src_width: match source {
-                LegacyPointerSource::Anywhere => 0,
-                LegacyPointerSource::Window { src_width, .. } => src_width,
-            },
-            src_height: match source {
-                LegacyPointerSource::Anywhere => 0,
-                LegacyPointerSource::Window { src_height, .. } => src_height,
-            },
-            dst_x: match dest {
-                LegacyPointerDestination::Relative { x, .. } => x,
-                LegacyPointerDestination::Absolute { x, .. } => x,
-            },
-            dst_y: match dest {
-                LegacyPointerDestination::Relative { y, .. } => y,
-                LegacyPointerDestination::Absolute { y, .. } => y,
-            },
-            dst_window: match dest {
-                LegacyPointerDestination::Relative { .. } => 0,
-                LegacyPointerDestination::Absolute { window, .. } => window.handle,
-            },
-        });
+        send_request!(
+            self,
+            WarpPointer {
+                src_window: match source {
+                    LegacyPointerSource::Anywhere => 0,
+                    LegacyPointerSource::Window {
+                        window,
+                        ..
+                    } => window.handle,
+                },
+                src_x: match source {
+                    LegacyPointerSource::Anywhere => 0,
+                    LegacyPointerSource::Window {
+                        src_x,
+                        ..
+                    } => src_x,
+                },
+                src_y: match source {
+                    LegacyPointerSource::Anywhere => 0,
+                    LegacyPointerSource::Window {
+                        src_y,
+                        ..
+                    } => src_y,
+                },
+                src_width: match source {
+                    LegacyPointerSource::Anywhere => 0,
+                    LegacyPointerSource::Window {
+                        src_width,
+                        ..
+                    } => src_width,
+                },
+                src_height: match source {
+                    LegacyPointerSource::Anywhere => 0,
+                    LegacyPointerSource::Window {
+                        src_height,
+                        ..
+                    } => src_height,
+                },
+                dst_x: match dest {
+                    LegacyPointerDestination::Relative {
+                        x,
+                        ..
+                    } => x,
+                    LegacyPointerDestination::Absolute {
+                        x,
+                        ..
+                    } => x,
+                },
+                dst_y: match dest {
+                    LegacyPointerDestination::Relative {
+                        y,
+                        ..
+                    } => y,
+                    LegacyPointerDestination::Absolute {
+                        y,
+                        ..
+                    } => y,
+                },
+                dst_window: match dest {
+                    LegacyPointerDestination::Relative {
+                        ..
+                    } => 0,
+                    LegacyPointerDestination::Absolute {
+                        window,
+                        ..
+                    } => window.handle,
+                },
+            }
+        );
         Ok(())
     }
 
     pub async fn legacy_set_input_focus(&self, revert_to: InputFocusRevert, window: InputFocusWindow<'_>, time: Timestamp) -> Result<()> {
-        send_request!(self, revert_to as u8, SetInputFocus {
+        send_request!(self, reserved revert_to as u8, SetInputFocus {
             window: match window {
                 InputFocusWindow::None => 0,
                 InputFocusWindow::PointerRoot => 1,
@@ -174,17 +232,20 @@ impl X11Connection {
     }
 
     pub async fn legacy_get_input_focus(&self) -> Result<(InputFocusRevert, InputFocusWindow<'_>)> {
-        let seq = send_request!(self, GetInputFocus {
-        });
-        let (reply, revert_to) = receive_reply!(self, seq, GetInputFocusReply, fetched);
+        let reply = send_request!(self, GetInputFocusReply, GetInputFocus {});
+        let revert_to = reply.reserved;
+        let reply = reply.into_inner();
 
         Ok((
             InputFocusRevert::decode_sync(&mut &[revert_to][..])?,
             match reply.focus_window {
                 0 => InputFocusWindow::None,
                 1 => InputFocusWindow::PointerRoot,
-                handle => InputFocusWindow::Window(Window { handle, connection: self }),
-            }
+                handle => InputFocusWindow::Window(Window {
+                    handle,
+                    connection: self,
+                }),
+            },
         ))
     }
 }

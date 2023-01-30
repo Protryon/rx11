@@ -15,7 +15,9 @@ impl<'a> Resource<'a> for Visual {
     }
 
     fn from_x11_handle(_connection: &'a X11Connection, handle: u32) -> Self {
-        Self { handle }
+        Self {
+            handle,
+        }
     }
 }
 
@@ -89,8 +91,14 @@ pub struct Screen<'a> {
 impl<'a> Screen<'a> {
     pub(crate) fn decode(connection: &'a X11Connection, screen: crate::coding::Screen) -> Self {
         Self {
-            root: Window { handle: screen.root_window, connection },
-            default_colormap: Colormap { handle: screen.default_colormap, connection },
+            root: Window {
+                handle: screen.root_window,
+                connection,
+            },
+            default_colormap: Colormap {
+                handle: screen.default_colormap,
+                connection,
+            },
             white_pixel: Pixel(screen.white_pixel),
             black_pixel: Pixel(screen.black_pixel),
             current_input_masks: screen.current_input_event_mask,
@@ -100,7 +108,9 @@ impl<'a> Screen<'a> {
             height_in_mm: screen.height_in_mm,
             min_installed_maps: screen.min_installed_maps,
             max_installed_maps: screen.max_installed_maps,
-            root_visual: Visual { handle: screen.root_visual },
+            root_visual: Visual {
+                handle: screen.root_visual,
+            },
             backing_stores: screen.backing_store,
             save_unders: screen.save_under,
             root_depth: screen.root_depth,

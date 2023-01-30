@@ -13,14 +13,19 @@ impl X11Connection {
     ) -> Result<SetDebuggingFlagsResponse> {
         let flags = flags.into();
         let controls = controls.into();
-        let seq = send_request_xkb!(self, XKBOpcode::SetDebuggingFlags, false, SetDebuggingFlagsRequest {
-            affect_flags: flags.affect,
-            flags: flags.value,
-            affect_ctrls: controls.affect,
-            ctrls: controls.value,
-            message: message.as_ref().to_string(),
-        });
-        let reply = receive_reply!(self, seq, SetDebuggingFlagsResponse);
+        let reply = send_request_xkb!(
+            self,
+            XKBOpcode::SetDebuggingFlags,
+            SetDebuggingFlagsResponse,
+            SetDebuggingFlagsRequest {
+                affect_flags: flags.affect,
+                flags: flags.value,
+                affect_ctrls: controls.affect,
+                ctrls: controls.value,
+                message: message.as_ref().to_string(),
+            }
+        )
+        .into_inner();
 
         Ok(reply)
     }
